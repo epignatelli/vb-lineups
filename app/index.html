@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f1117" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="VB Lineups" />
+  <meta name="description" content="Generate and explore valid volleyball team combinations with position constraints." />
+
+  <title>VB Lineup Builder</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="stylesheet" href="./style.css" />
+
+  <!-- Apple touch icon fallback (inline SVG as data URI) -->
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-brand">
+      <div class="header-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0f1117" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 3a9 9 0 0 1 6.36 15.36"/>
+          <path d="M3.64 6.64A9 9 0 0 0 12 21"/>
+          <path d="M12 3v18"/>
+        </svg>
+      </div>
+      <div>
+        <h1>VB Lineups</h1>
+        <div class="header-sub">Volleyball lineup builder</div>
+      </div>
+    </div>
+    <div class="count-badge" id="count-badge">— / — lineups</div>
+  </header>
+
+  <!-- Install banner (hidden until PWA prompt fires) -->
+  <div class="install-banner hidden" id="install-banner">
+    <p>Add to your home screen for offline access</p>
+    <button class="install-btn" id="install-btn">Install</button>
+  </div>
+
+  <!-- Filters -->
+  <div class="filter-panel">
+
+    <div class="filter-row">
+      <div class="filter-section">
+        <div class="filter-label">Setter <span style="font-weight:400;opacity:.6">(one)</span></div>
+        <div class="pills" id="pg-setter"></div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-label">Libero <span style="font-weight:400;opacity:.6">(one)</span></div>
+        <div class="pills" id="pg-lib"></div>
+      </div>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">Must include hitter <span style="font-weight:400;opacity:.6">(pick any)</span></div>
+      <div class="pills" id="pg-hitter"></div>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">Must include middle <span style="font-weight:400;opacity:.6">(pick any)</span></div>
+      <div class="pills" id="pg-middle"></div>
+    </div>
+
+    <div class="filter-section">
+      <div class="toggle-row">
+        <div class="toggle-label">
+          Rotation-sensitive only
+          <small>Lineups where a middle rotation could leave exactly 2 women</small>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="chk-tight" />
+          <span class="switch-track"></span>
+        </label>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-label">3+ women on court</div>
+        <label class="switch">
+          <input type="checkbox" id="chk-3w" />
+          <span class="switch-track"></span>
+        </label>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Sort bar -->
+  <div class="sort-bar">
+    <button class="sort-btn active" data-sort="idx">Default</button>
+    <button class="sort-btn" data-sort="wdesc">Most women first</button>
+    <button class="sort-btn" data-sort="wasc">Fewest women first</button>
+    <button class="sort-btn" data-sort="tight">Rotation-sensitive first</button>
+  </div>
+
+  <!-- Results header -->
+  <div class="results-header">
+    <span class="results-title">Lineups</span>
+    <button class="clear-btn" id="clear-btn">Clear all filters</button>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="leg"><div class="leg-dot" style="background:#22c97a"></div>Woman</div>
+    <div class="leg"><div class="leg-dot" style="background:#f5a623;border-radius:2px"></div>Rotation-sensitive</div>
+  </div>
+
+  <!-- Cards -->
+  <div class="cards" id="cards"></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
