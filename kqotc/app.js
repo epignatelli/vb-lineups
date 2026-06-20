@@ -695,9 +695,11 @@ async function debugFillPlayers() {
     batch.set(ref, { name, cumScore: 0, joinedAt: now });
     newPlayers.push({ id: ref.id, name, cumScore: 0 });
   }
+  // Pre-seed seenKeys so the subcollection listener skips these docs when they arrive
+  newPlayers.forEach(p => _seenKeys.add(p.id));
+  players.push(...newPlayers);
   await batch.commit();
   await _tourRef().update({ playerCount: firebase.firestore.FieldValue.increment(n) });
-  players.push(...newPlayers);
   renderCheckin();
 }
 
