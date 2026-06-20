@@ -315,6 +315,22 @@ function renderLeaderboard() {
     </div>`;
 }
 
+function clearPlayers() {
+  if (!players.length) return;
+  if (!confirm(`Remove all ${players.length} players? This cannot be undone.`)) return;
+  players = [];
+  savePlayers();
+  renderCheckin();
+}
+
+function resetScores() {
+  if (!players.some(p => p.cumScore > 0)) return;
+  if (!confirm('Reset all cumulative scores to zero? This cannot be undone.')) return;
+  players.forEach(p => { p.cumScore = 0; });
+  savePlayers();
+  renderCheckin();
+}
+
 function newEvent() {
   if (!confirm('Start a new event? This will clear all scores.')) return;
   players.forEach(p => p.cumScore = 0);
