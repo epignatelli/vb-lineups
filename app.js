@@ -121,6 +121,14 @@ function removePlayer(id) {
   validateSetup();
 }
 
+function clearRoster() {
+  if (!confirm('Remove all players and start fresh?')) return;
+  players = [];
+  saveRoster();
+  renderRoster();
+  validateSetup();
+}
+
 function setPlayerGender(id, g) {
   const p = players.find(p => p.id === id);
   if (!p) return;
@@ -153,12 +161,15 @@ function renderRoster() {
   const list = document.getElementById('roster-list');
   const empty = document.getElementById('roster-empty');
 
+  const clearBtn = document.getElementById('clear-roster-btn');
   if (!players.length) {
     list.innerHTML = '';
     empty.style.display = 'block';
+    if (clearBtn) clearBtn.style.display = 'none';
     return;
   }
   empty.style.display = 'none';
+  if (clearBtn) clearBtn.style.display = 'inline';
 
   list.innerHTML = players.map(p => {
     const isF  = p.gender === 'f';

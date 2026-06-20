@@ -178,6 +178,25 @@ body {
   color: var(--muted);
 }
 
+.roster-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.clear-roster-btn {
+  font-size: 12px;
+  color: var(--red);
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: .7;
+  -webkit-tap-highlight-color: transparent;
+  padding: 2px 0;
+  transition: opacity .15s;
+}
+.clear-roster-btn:active { opacity: 1; }
+
 .player-list { display: flex; flex-direction: column; gap: 6px; }
 .player-item {
   background: var(--surface);
