@@ -36,7 +36,8 @@ async function _checkAdmin(user) {
 
 async function signIn() {
   const provider = new firebase.auth.GoogleAuthProvider();
-  await getAuth().signInWithRedirect(provider);
+  try { await getAuth().signInWithPopup(provider); }
+  catch(e) { if (e.code !== 'auth/popup-closed-by-user') console.error(e); }
 }
 
 async function signOut() {
@@ -681,9 +682,6 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 // ─── Boot ──────────────────────────────────────────────────────────────────────
 async function boot() {
   if (DEBUG) document.querySelectorAll('.debug-bar').forEach(el => el.style.display = 'flex');
-
-  // Pick up any pending Google redirect result
-  try { await getAuth().getRedirectResult(); } catch(e) { console.error('Auth redirect:', e); }
 
   // Wait for auth state to resolve before rendering anything
   await new Promise(resolve => {
