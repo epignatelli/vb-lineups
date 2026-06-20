@@ -143,11 +143,10 @@ function renderRound() {
     return `
       <div class="team-card" id="team-${t.id}">
         <div class="team-names">${names}</div>
-        <div class="score-row">
-          <button class="score-btn" onclick="adjustTeamScore(${t.id}, -1)">−</button>
-          <span class="score-val" id="tscore-${t.id}">${t.roundScore}</span>
-          <button class="score-btn" onclick="adjustTeamScore(${t.id}, 1)">+</button>
-        </div>
+        <input class="score-input" type="number" min="0" inputmode="numeric"
+          value="${t.roundScore}"
+          onfocus="this.select()"
+          oninput="setTeamScore(${t.id}, this.value)" />
       </div>`;
   }).join('');
 
@@ -156,11 +155,10 @@ function renderRound() {
     return `
       <div class="workup-row">
         <span class="player-name">${esc(p?.name ?? '—')}</span>
-        <div class="score-row">
-          <button class="score-btn" onclick="adjustWorkScore(${wu.playerId}, -1)">−</button>
-          <span class="score-val" id="wscore-${wu.playerId}">${wu.roundScore}</span>
-          <button class="score-btn" onclick="adjustWorkScore(${wu.playerId}, 1)">+</button>
-        </div>
+        <input class="score-input" type="number" min="0" inputmode="numeric"
+          value="${wu.roundScore}"
+          onfocus="this.select()"
+          oninput="setWorkScore(${wu.playerId}, this.value)" />
       </div>`;
   }).join('') : '<div class="empty-note">No players on work-up this round</div>';
 
@@ -175,18 +173,14 @@ function renderRound() {
     </div>`;
 }
 
-function adjustTeamScore(id, delta) {
+function setTeamScore(id, val) {
   const t = topTeams.find(t => t.id === id);
-  if (!t) return;
-  t.roundScore = Math.max(0, t.roundScore + delta);
-  document.getElementById(`tscore-${id}`).textContent = t.roundScore;
+  if (t) t.roundScore = Math.max(0, parseInt(val) || 0);
 }
 
-function adjustWorkScore(playerId, delta) {
+function setWorkScore(playerId, val) {
   const wu = workUp.find(w => w.playerId === playerId);
-  if (!wu) return;
-  wu.roundScore = Math.max(0, wu.roundScore + delta);
-  document.getElementById(`wscore-${playerId}`).textContent = wu.roundScore;
+  if (wu) wu.roundScore = Math.max(0, parseInt(val) || 0);
 }
 
 // ─── End round ─────────────────────────────────────────────────────────────────

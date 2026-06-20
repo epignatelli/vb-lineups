@@ -279,35 +279,27 @@ body {
   margin-bottom: 4px;
 }
 
-/* Score stepper */
-.score-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-.score-btn {
-  width: 32px; height: 32px;
-  border-radius: 50%;
+/* Score input */
+.score-input {
+  width: 64px;
+  height: 40px;
+  background: var(--surface2);
   border: 1.5px solid var(--border2);
-  background: transparent;
-  color: var(--text);
-  font-size: 18px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background .12s;
-  line-height: 1;
-}
-.score-btn:active { background: var(--surface2); }
-.score-val {
+  border-radius: var(--radius-sm);
+  color: var(--amber);
   font-family: var(--sport);
   font-size: 22px;
   font-weight: 700;
-  min-width: 28px;
   text-align: center;
-  color: var(--amber);
+  outline: none;
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+  flex-shrink: 0;
+  transition: border-color .15s;
 }
+.score-input:focus { border-color: var(--amber); }
+.score-input::-webkit-inner-spin-button,
+.score-input::-webkit-outer-spin-button { -webkit-appearance: none; }
 
 /* Work-up rows */
 .workup-row {
