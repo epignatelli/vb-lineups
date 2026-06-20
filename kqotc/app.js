@@ -25,18 +25,7 @@ function esc(s) {
 }
 function getPlayer(id) { return players.find(p => p.id === id); }
 
-function calcNumTopTeams(n) {
-  if (n >= 40) return 5;
-  if (n >= 32) return 4;
-  return 3;
-}
-
-function calcMoversUp(nTop, rnd) {
-  if (nTop === 3) return rnd <= 2 ? 8 : 4;
-  if (nTop === 4) return 8;
-  if (nTop === 5) return rnd <= 2 ? 12 : 8;
-  return 8;
-}
+// calcNumTopTeams, calcMoversUp, computeTransition, computeScores live in logic.js
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -185,53 +174,14 @@ function setWorkScore(playerId, val) {
 
 // ─── End round ─────────────────────────────────────────────────────────────────
 function endRound() {
-  // Accumulate scores
-  topTeams.forEach(t => {
-    t.playerIds.forEach(pid => {
-      const p = getPlayer(pid);
-      if (p) p.cumScore += t.roundScore;
-    });
-  });
-  workUp.forEach(wu => {
-    const p = getPlayer(wu.playerId);
-    if (p) p.cumScore += wu.roundScore;
-  });
+  players = computeScores(players, topTeams, workUp);
 
-  // Calculate movements
-  const moversUpCount  = Math.min(calcMoversUp(numTopTeams, round), workUp.length);
-  const numTeamsDown   = Math.min(Math.floor(moversUpCount / 4), numTopTeams - 1);
-  const moversDownCount = numTeamsDown * 4;
+  const result = computeTransition(topTeams, workUp, numTopTeams, round);
+  result.newTeams.forEach((t, i) => { t.id = Date.now() + i; });
 
-  const workSorted  = [...workUp].sort((a, b) => b.roundScore - a.roundScore);
-  const moversUp    = workSorted.slice(0, moversUpCount);
-  const stayWorkUp  = workSorted.slice(moversUpCount);
+  pendingNext = { topTeams: result.nextTopTeams, workUp: result.nextWorkUp };
 
-  const teamsSorted   = [...topTeams].sort((a, b) => b.roundScore - a.roundScore);
-  const stayTeams     = teamsSorted.slice(0, numTopTeams - numTeamsDown);
-  const movingDownTeams = teamsSorted.slice(numTopTeams - numTeamsDown);
-
-  // Prepare next round
-  const newTeams = [];
-  for (let i = 0; i < numTeamsDown; i++) {
-    newTeams.push({
-      id: Date.now() + i,
-      playerIds: moversUp.slice(i * 4, i * 4 + 4).map(wu => wu.playerId),
-      roundScore: 0
-    });
-  }
-
-  pendingNext = {
-    topTeams: [
-      ...stayTeams.map(t => ({ ...t, roundScore: 0 })),
-      ...newTeams
-    ],
-    workUp: [
-      ...movingDownTeams.flatMap(t => t.playerIds.map(pid => ({ playerId: pid, roundScore: 0 }))),
-      ...stayWorkUp.map(wu => ({ ...wu, roundScore: 0 }))
-    ]
-  };
-
-  renderTransition({ moversUp, movingDownTeams, stayTeams, newTeams, stayWorkUp });
+  renderTransition(result);
   document.getElementById('transition-title').textContent = `Round ${round} done`;
   document.getElementById('next-round-num').textContent = round + 1;
   showScreen('transition');

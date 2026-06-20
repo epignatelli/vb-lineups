@@ -1,5 +1,5 @@
 const CACHE = 'kqotc-v1';
-const ASSETS = ['./', './index.html', './app.js', './style.css', './manifest.json'];
+const ASSETS = ['./', './index.html', './logic.js', './app.js', './style.css', './manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
