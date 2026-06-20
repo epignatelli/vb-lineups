@@ -200,7 +200,10 @@
       <button class="cta-btn secondary-btn" onclick="showScreen('round')">← Back</button>
       <button class="cta-btn" onclick="startNextRound()">Round <span id="next-round-num">2</span> →</button>
     </div>
-    <button class="end-tourney-btn" onclick="endEvent()">End tournament &amp; see results</button>
+    <div style="display:flex;gap:8px">
+      <button class="end-tourney-btn" onclick="goHome()" style="flex:0 0 auto;padding:0 16px">← Events</button>
+      <button class="end-tourney-btn" onclick="endEvent()">End tournament &amp; see results</button>
+    </div>
   </div>
 </div>
 
