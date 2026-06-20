@@ -11,6 +11,8 @@ let pendingNext = null; // prepared next-round state
 
 let _tournamentId   = null;
 let _tournamentName = '';
+let _currentUser    = null;
+let _isAdmin        = false;
 
 const STORE_KEY = 'kqotc-players-v1';
 
@@ -20,8 +22,49 @@ function savePlayers() {
   saveTournament();
 }
 
-// ─── Firebase / Tournaments ────────────────────────────────────────────────────
+// ─── Firebase / Auth ───────────────────────────────────────────────────────────
 function getDb()   { return firebase.firestore(); }
+function getAuth() { return firebase.auth(); }
+
+async function _checkAdmin(user) {
+  if (!user) return false;
+  try {
+    const doc = await getDb().collection('admins').doc(user.email).get();
+    return doc.exists;
+  } catch(e) { return false; }
+}
+
+async function signIn() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try { await getAuth().signInWithPopup(provider); }
+  catch(e) { if (e.code !== 'auth/popup-closed-by-user') console.error(e); }
+}
+
+async function signOut() {
+  await getAuth().signOut();
+}
+
+function handleAuthClick() {
+  if (_currentUser) signOut();
+  else signIn();
+}
+
+function _updateAuthUI() {
+  const btn     = document.getElementById('auth-btn');
+  const newBtn  = document.getElementById('home-new-event-btn');
+  if (!btn) return;
+  if (_currentUser) {
+    const label = _currentUser.displayName?.split(' ')[0] || _currentUser.email;
+    btn.textContent = `${label} · Sign out`;
+    btn.classList.add('auth-btn--signed-in');
+  } else {
+    btn.textContent = 'Sign in';
+    btn.classList.remove('auth-btn--signed-in');
+  }
+  if (newBtn) newBtn.style.display = _isAdmin ? '' : 'none';
+}
+
+// ─── Firebase / Tournaments ────────────────────────────────────────────────────
 function _tourRef() { return getDb().collection('tournaments').doc(_tournamentId); }
 
 function _localState() {
@@ -127,13 +170,14 @@ function _renderTourItem(t) {
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         ${badge}
-        <button class="tour-delete-btn" onclick="event.stopPropagation();deleteTournament('${t.id}','${esc(t.name)}')" title="Delete event">✕</button>
+        ${_isAdmin ? `<button class="tour-delete-btn" onclick="event.stopPropagation();deleteTournament('${t.id}','${esc(t.name)}')" title="Delete event">✕</button>` : ''}
         <span class="tour-arrow">›</span>
       </div>
     </div>`;
 }
 
 async function deleteTournament(id, name) {
+  if (!_isAdmin) return;
   if (!confirm(`Delete "${name}"?\n\nThis will permanently remove the event and all its data.`)) return;
   try {
     await getDb().collection('tournaments').doc(id).delete();
@@ -145,6 +189,7 @@ async function deleteTournament(id, name) {
 }
 
 function showCreateForm() {
+  if (!_isAdmin) return;
   const now       = new Date();
   const monthYear = now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   document.getElementById('create-name').value = `KQOTC ${monthYear}`;
@@ -637,6 +682,27 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 // ─── Boot ──────────────────────────────────────────────────────────────────────
 async function boot() {
   if (DEBUG) document.querySelectorAll('.debug-bar').forEach(el => el.style.display = 'flex');
+
+  // Wait for auth state to resolve before rendering anything
+  await new Promise(resolve => {
+    const unsub = getAuth().onAuthStateChanged(async user => {
+      unsub();
+      _currentUser = user;
+      _isAdmin     = await _checkAdmin(user);
+      resolve();
+    });
+  });
+
+  // Re-render home auth UI on subsequent sign-in / sign-out
+  getAuth().onAuthStateChanged(async user => {
+    _currentUser = user;
+    _isAdmin     = await _checkAdmin(user);
+    _updateAuthUI();
+    const homeActive = document.getElementById('screen-home')?.classList.contains('active');
+    if (homeActive) await renderHome();
+  });
+
+  _updateAuthUI();
 
   const lastId = localStorage.getItem('kqotc-last-tournament');
   if (lastId) {

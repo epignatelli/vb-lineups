@@ -32,6 +32,7 @@
       <h1>KQOTC</h1>
       <div class="subtitle">King / Queen of the Court</div>
     </div>
+    <button class="auth-btn" id="auth-btn" onclick="handleAuthClick()">Sign in</button>
   </header>
 
   <div class="home-content" id="home-content">
@@ -39,7 +40,7 @@
   </div>
 
   <div class="footer">
-    <button class="cta-btn" onclick="showCreateForm()">+ New event</button>
+    <button class="cta-btn" id="home-new-event-btn" onclick="showCreateForm()" style="display:none">+ New event</button>
   </div>
 
   <!-- Create event slide-up panel -->
@@ -235,6 +236,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script>
   firebase.initializeApp({
     apiKey: "AIzaSyBNxICoyaaRscb2-wHBwU52dxlNOQIRRdk",

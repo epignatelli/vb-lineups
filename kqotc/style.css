@@ -79,6 +79,20 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 .back-btn, .end-event-btn { margin-left: auto; }
+.auth-btn {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--border2);
+  border-radius: var(--pill);
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.auth-btn--signed-in { color: var(--text); border-color: var(--border2); }
 
 /* ─── Check-in screen ─────────────────────────────── */
 .checkin-content {
