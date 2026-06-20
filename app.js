@@ -532,6 +532,83 @@ function escHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ─── Rotations ─────────────────────────────────────────────────────────────────
+const ROTATION_SYSTEMS = {
+  '5-1': {
+    desc: '1 setter · 5 hitters. Setter rotates through all 6 positions.',
+    rotations: [
+      { base: { front:['OPP','MB2','OH1'],  back:['OH2','MB1','S']   }, sr:'Hide the Set'  },
+      { base: { front:['OH2','OPP','MB2'],  back:['MB1','S','OH1']   }, sr:'Triangle'      },
+      { base: { front:['MB1','OH2','OPP'],  back:['S','OH1','MB2']   }, sr:'Scissors'      },
+      { base: { front:['S','MB1','OH2'],    back:['OH1','MB2','OPP'] }, sr:'Stack'         },
+      { base: { front:['OH1','S','MB1'],    back:['MB2','OPP','OH2'] }, sr:'Two Person'    },
+      { base: { front:['MB2','OH1','S'],    back:['OPP','OH2','MB1'] }, sr:'Hook'          },
+    ]
+  },
+  '6-2': {
+    desc: '2 setters · 6 hitters. Setter always sets from the back row.',
+    rotations: [
+      { base: { front:['OPP2','MB2','OH1'],  back:['OH2','MB1','S1']  }, sr:'Hide the Set' },
+      { base: { front:['OH2','OPP2','MB2'],  back:['MB1','S1','OH1']  }, sr:'Triangle'     },
+      { base: { front:['MB1','OH2','OPP2'],  back:['S1','OH1','MB2']  }, sr:'Scissors'     },
+      { base: { front:['OPP1','MB1','OH2'],  back:['OH1','MB2','S2']  }, sr:'Hide the Set' },
+      { base: { front:['OH1','OPP1','MB1'],  back:['MB2','S2','OH2']  }, sr:'Triangle'     },
+      { base: { front:['MB2','OH1','OPP1'],  back:['S2','OH2','MB1']  }, sr:'Scissors'     },
+    ]
+  }
+};
+
+let currentSystem = '5-1';
+
+function roleClass(key) {
+  if (!key) return '';
+  if (key[0] === 'S') return 'rc-s';
+  if (key.startsWith('OH'))  return 'rc-oh';
+  if (key.startsWith('OPP')) return 'rc-opp';
+  if (key.startsWith('MB'))  return 'rc-mb';
+  return '';
+}
+
+function courtHtml(rows) {
+  return `<div class="vb-court">
+    ${rows.map((row, ri) => `
+      <div class="court-row${ri === 0 ? ' front-row' : ''}">
+        ${row.map(key => `<div class="court-cell ${roleClass(key)}">${key}</div>`).join('')}
+      </div>`).join('')}
+  </div>`;
+}
+
+function renderRotations() {
+  const sys = ROTATION_SYSTEMS[currentSystem];
+  document.getElementById('system-desc').textContent = sys.desc;
+  document.getElementById('rotations-body').innerHTML = sys.rotations.map((r, i) => `
+    <div class="rotation-card">
+      <div class="rotation-header">
+        <span class="rotation-num">Rotation ${i + 1}</span>
+        <span class="sr-badge">${r.sr}</span>
+      </div>
+      <div class="rotation-label-row">
+        <span class="court-side-label">Base</span>
+        <span class="court-side-label">↑ Net</span>
+      </div>
+      ${courtHtml([r.base.front, r.base.back])}
+    </div>`).join('');
+}
+
+function setSystem(sys) {
+  currentSystem = sys;
+  document.getElementById('sys-51').classList.toggle('active', sys === '5-1');
+  document.getElementById('sys-62').classList.toggle('active', sys === '6-2');
+  renderRotations();
+}
+
+function showTab(tab) {
+  const isRotations = tab === 'rotations';
+  document.getElementById('screen-setup').classList.toggle('active', !isRotations);
+  document.getElementById('screen-rotations').classList.toggle('active', isRotations);
+  if (isRotations) renderRotations();
+}
+
 // ─── Service worker ────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');

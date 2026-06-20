@@ -37,6 +37,11 @@
     </div>
   </header>
 
+  <div class="main-tabs">
+    <button class="main-tab active" onclick="showTab('lineups')">Lineups</button>
+    <button class="main-tab" onclick="showTab('rotations')">Rotations</button>
+  </div>
+
   <div class="setup-content" id="setup-content">
 
     <!-- Rules -->
@@ -140,6 +145,40 @@
 
     <div class="cards" id="cards"></div>
   </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SCREEN 3 — ROTATIONS
+══════════════════════════════════════════════════ -->
+<div class="screen" id="screen-rotations">
+
+  <header class="app-header">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#0f1117" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="6" width="20" height="12" rx="1.5" stroke-width="2"/>
+        <line x1="12" y1="6" x2="12" y2="18" stroke-width="2.5"/>
+        <line x1="7.5" y1="6" x2="7.5" y2="18" stroke-width="1.2"/>
+        <line x1="16.5" y1="6" x2="16.5" y2="18" stroke-width="1.2"/>
+      </svg>
+    </div>
+    <div>
+      <h1>VB Lineups</h1>
+      <div class="subtitle">Rotation reference.</div>
+    </div>
+  </header>
+
+  <div class="main-tabs">
+    <button class="main-tab" onclick="showTab('lineups')">Lineups</button>
+    <button class="main-tab active" onclick="showTab('rotations')">Rotations</button>
+  </div>
+
+  <div class="system-bar">
+    <button class="system-btn active" id="sys-51" onclick="setSystem('5-1')">5-1</button>
+    <button class="system-btn" id="sys-62" onclick="setSystem('6-2')">6-2</button>
+    <span class="system-desc" id="system-desc"></span>
+  </div>
+
+  <div class="rotations-body" id="rotations-body"></div>
 </div>
 
 <script src="./app.js"></script>
