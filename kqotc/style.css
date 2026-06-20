@@ -450,6 +450,21 @@ body {
   font-family: var(--sport); font-size: 20px; font-weight: 700;
   color: var(--text); letter-spacing: .14em;
 }
+.qr-url-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 11px;
+  padding: 6px 10px;
+  outline: none;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-appearance: none;
+}
 .qr-status { font-size: 13px; color: var(--amber); font-weight: 600; }
 
 .qr-player-list {

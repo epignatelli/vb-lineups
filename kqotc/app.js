@@ -360,15 +360,38 @@ function genSessionId() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-function openQRCheckin() {
+// WebRTC trick: discover the LAN IP via ICE candidates (best-effort, ~1s)
+function getLanIP() {
+  return new Promise(resolve => {
+    const pc = new RTCPeerConnection({ iceServers: [] });
+    pc.createDataChannel('');
+    pc.createOffer().then(o => pc.setLocalDescription(o)).catch(() => resolve(null));
+    pc.onicecandidate = e => {
+      if (!e.candidate) return;
+      const m = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/.exec(e.candidate.candidate);
+      if (m && !m[1].startsWith('127.')) { resolve(m[1]); pc.close(); }
+    };
+    setTimeout(() => resolve(null), 1200);
+  });
+}
+
+async function openQRCheckin() {
   _sessionId = genSessionId();
   _qrActive  = true;
   _seenKeys  = new Set();
 
-  const joinUrl = location.href.split('?')[0].replace(/\/?$/, '/') + 'join/?s=' + _sessionId;
+  // Build base URL, swapping localhost for LAN IP when running locally
+  let base = location.href.split('?')[0].replace(/\/?$/, '/');
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    const ip = await getLanIP();
+    if (ip) base = base.replace(location.hostname, ip);
+  }
+  const joinUrl = base + 'join/?s=' + _sessionId;
+
   document.getElementById('qr-img').src =
     `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(joinUrl)}&qzone=1`;
   document.getElementById('qr-code-text').textContent = _sessionId;
+  document.getElementById('qr-join-url').value = joinUrl;
   document.getElementById('qr-status').textContent = 'Waiting for players…';
   document.getElementById('qr-player-list').innerHTML = '';
   document.getElementById('qr-overlay').classList.add('open');

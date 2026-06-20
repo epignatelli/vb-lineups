@@ -85,6 +85,8 @@
         <img id="qr-img" src="" alt="QR code" width="200" height="200" />
       </div>
       <div class="qr-session-label">Code: <strong id="qr-code-text"></strong></div>
+      <input class="qr-url-input" id="qr-join-url" type="text" readonly
+        onclick="this.select()" title="Tap to copy" />
       <div class="qr-status" id="qr-status">Waiting for players…</div>
       <div class="qr-player-list" id="qr-player-list"></div>
       <button class="cta-btn" onclick="closeQRCheckin()">Done</button>
