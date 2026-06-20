@@ -620,16 +620,19 @@ function _stopPlayerListener() {
 function _updateSubmittedScores() {
   const el = document.getElementById('submitted-scores');
   if (!el) return;
-  const rows = topTeams.map(t => {
-    const submitted = t.playerIds
-      .map(id => players.find(p => p.id === id))
-      .filter(p => p && p.submittedRound === round && p.submittedScore !== undefined);
-    if (!submitted.length) return `<div class="sub-row"><span>Team ${t.id}</span><span class="sub-empty">No submissions yet</span></div>`;
-    const scores = submitted.map(p => p.submittedScore);
-    const avg    = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-    const label  = scores.length === t.playerIds.length ? `${avg} pts` : `${avg} pts (${scores.length}/${t.playerIds.length})`;
-    return `<div class="sub-row"><span>Team ${t.id}</span><span class="sub-score">${label}</span></div>`;
-  });
+  const allIds = [
+    ...topTeams.flatMap(t => t.playerIds),
+    ...workUp.map(w => w.playerId),
+  ];
+  const rows = allIds.map(id => {
+    const p = players.find(pl => pl.id === id);
+    if (!p) return '';
+    const submitted = p.submittedRound === round && p.submittedScore !== undefined;
+    return `<div class="sub-row">
+      <span>${esc(p.name)}</span>
+      ${submitted ? `<span class="sub-score">${p.submittedScore} pts</span>` : `<span class="sub-empty">—</span>`}
+    </div>`;
+  }).filter(Boolean);
   el.innerHTML = rows.join('');
 }
 
