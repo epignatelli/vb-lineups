@@ -235,24 +235,26 @@ function endRound() {
 
 // ─── Transition screen ─────────────────────────────────────────────────────────
 function renderTransition({ moversUp, movingDownTeams, stayTeams, newTeams, stayWorkUp }) {
-  const name = id => esc(getPlayer(id)?.name ?? '—');
+  const name   = id => esc(getPlayer(id)?.name ?? '—');
+  const total  = id => getPlayer(id)?.cumScore ?? 0;
+  const avgTotal = ids => Math.round(ids.reduce((s, id) => s + total(id), 0) / ids.length);
 
   const downList = movingDownTeams.map(t =>
-    `<div class="move-row down"><span class="move-name">${t.playerIds.map(name).join(', ')}</span><span class="move-score">${t.roundScore} pts</span></div>`
+    `<div class="move-row down"><span class="move-name">${t.playerIds.map(name).join(', ')}</span><span class="move-score">${t.roundScore} pts · <b>${avgTotal(t.playerIds)} total</b></span></div>`
   ).join('') || '<div class="empty-note">—</div>';
 
   const nextKingCards = [
-    ...stayTeams.map(t => ({ ...t, isNew: false, scoreLabel: `${t.roundScore} pts this round` })),
+    ...stayTeams.map(t => ({ ...t, isNew: false, roundLabel: `${t.roundScore} pts this round`, totalLabel: `${avgTotal(t.playerIds)} total` })),
     ...newTeams.map((t, i) => {
       const slice = moversUp.slice(i * 4, i * 4 + 4);
-      return { ...t, isNew: true, scoreLabel: slice.map(wu => wu.roundScore).join(' / ') + ' pts' };
+      return { ...t, isNew: true, roundLabel: slice.map(wu => wu.roundScore).join(' / ') + ' pts', totalLabel: `${avgTotal(t.playerIds)} total` };
     })
   ].map(t => `
     <div class="team-card ${t.isNew ? 'team-new' : 'team-stay'}">
       <div class="team-names">
         <span class="team-badge">${t.isNew ? '★ New' : '↩ Stay'}</span>
         ${t.playerIds.map(name).join(', ')}
-        <span class="cum-score">${t.scoreLabel}</span>
+        <span class="cum-score">${t.roundLabel} · <b>${t.totalLabel}</b></span>
       </div>
     </div>`).join('');
 
@@ -260,7 +262,7 @@ function renderTransition({ moversUp, movingDownTeams, stayTeams, newTeams, stay
     ...movingDownTeams.flatMap(t => t.playerIds.map(pid => ({ pid, score: t.roundScore, tag: '↓ ' }))),
     ...stayWorkUp.map(wu => ({ pid: wu.playerId, score: wu.roundScore, tag: '' }))
   ].map(({ pid, score, tag }) =>
-    `<div class="workup-row"><span class="player-name">${name(pid)}<span class="cum-score">${tag}${score} pts this round</span></span></div>`
+    `<div class="workup-row"><span class="player-name">${name(pid)}<span class="cum-score">${tag}${score} pts · <b>${total(pid)} total</b></span></span></div>`
   ).join('') || '<div class="empty-note">—</div>';
 
   document.getElementById('transition-content').innerHTML = `
