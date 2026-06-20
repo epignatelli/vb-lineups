@@ -234,6 +234,7 @@ body {
   background: transparent;
 }
 .pos-chip.on-setter   { border-color: #60a5fa; background: rgba(96,165,250,.15); color: #93c5fd; }
+.pos-chip.on-hitter   { border-color: var(--amber); background: var(--amber-bg); color: var(--amber); }
 .pos-chip.on-outside  { border-color: var(--amber); background: var(--amber-bg); color: var(--amber); }
 .pos-chip.on-opposite { border-color: var(--red);   background: var(--red-bg);   color: var(--red); }
 .pos-chip.on-middle   { border-color: var(--purple); background: var(--purple-bg); color: var(--purple); }
