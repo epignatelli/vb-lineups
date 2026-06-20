@@ -97,23 +97,17 @@
     <!-- filled by JS -->
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script>
-    function Gun(relays) {
-      // Lazy-load Gun.js only when needed (production fallback)
-      return {
-        _relays: relays, _loaded: false,
-        _instance: null,
-        _get(cb) {
-          if (this._instance) return cb(this._instance);
-          const s = document.createElement('script');
-          s.src = 'https://cdn.jsdelivr.net/npm/gun/gun.js';
-          s.onload = () => { this._instance = window.Gun(this._relays); cb(this._instance); };
-          document.head.appendChild(s);
-        },
-        get(key) { return { _key: key, _gun: this, get(k2) { return { _gun: this._gun, _key: this._key, _k2: k2, set(data) { this._gun._get(g => g.get(this._key).get(this._k2).set(data)); } }; } };
-        }
-      };
-    }
+    firebase.initializeApp({
+      apiKey: "AIzaSyBNxICoyaaRscb2-wHBwU52dxlNOQIRRdk",
+      authDomain: "roots-kqotc.firebaseapp.com",
+      projectId: "roots-kqotc",
+      storageBucket: "roots-kqotc.firebasestorage.app",
+      messagingSenderId: "1026148896358",
+      appId: "1:1026148896358:web:a8b5067a7b353b93ade7a7"
+    });
   </script>
   <script>
     const params    = new URLSearchParams(location.search);
@@ -152,23 +146,22 @@
         document.getElementById('checkin-btn').disabled = true;
         input.disabled = true;
 
-        let ok = false;
-
-        // Try local serve.py first
+        // Try local serve.py first (LAN dev mode)
+        let usedLocal = false;
         try {
           const r = await fetch(`/api/checkin?s=${sessionId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name }),
           });
-          ok = r.ok;
+          usedLocal = r.ok;
         } catch (e) {}
 
-        // Fall back to Gun.js for production
-        if (!ok) {
-          const gun = Gun(['https://gun-rs.fly.dev/gun', 'https://peer.wallie.io/gun']);
-          gun.get('kqotc-v1-' + sessionId).get('players').set({ name, ts: Date.now() });
-          ok = true;
+        // Production: write to Firestore
+        if (!usedLocal) {
+          await firebase.firestore()
+            .collection('sessions').doc(sessionId).collection('players')
+            .add({ name, ts: firebase.firestore.FieldValue.serverTimestamp() });
         }
 
         document.getElementById('name-input').style.display = 'none';

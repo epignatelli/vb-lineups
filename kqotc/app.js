@@ -346,18 +346,13 @@ function newEvent() {
 }
 
 // ─── QR / self check-in ────────────────────────────────────────────────────────
-let _gun         = null;
-let _sessionId   = null;
-let _qrActive    = false;
-let _seenKeys    = new Set();
-let _pollTimer   = null;
-let _pollTotal   = 0;
-let _localMode   = false;
-
-function getGun() {
-  if (!_gun) _gun = Gun(['https://gun-rs.fly.dev/gun', 'https://peer.wallie.io/gun']);
-  return _gun;
-}
+let _sessionId      = null;
+let _qrActive       = false;
+let _seenKeys       = new Set();
+let _pollTimer      = null;
+let _pollTotal      = 0;
+let _localMode      = false;
+let _unsubFirestore = null;
 
 function genSessionId() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -372,7 +367,7 @@ async function openQRCheckin() {
 
   let base = location.href.split('?')[0].replace(/\/?$/, '/');
 
-  // Detect serve.py and get LAN IP in one shot
+  // Detect serve.py — if found, use LAN IP + local polling
   try {
     const r = await fetch('/api/ip');
     if (r.ok) {
@@ -380,7 +375,7 @@ async function openQRCheckin() {
       if (ip && ip !== '127.0.0.1') base = base.replace(location.hostname, ip);
       _localMode = true;
     }
-  } catch (e) { /* production — use Gun */ }
+  } catch (e) { /* production — use Firestore */ }
 
   const joinUrl = base + 'join/?s=' + _sessionId;
   document.getElementById('qr-join-url').value = joinUrl;
@@ -393,11 +388,18 @@ async function openQRCheckin() {
   if (_localMode) {
     _pollTimer = setInterval(_pollPlayers, 2000);
   } else {
-    getGun().get('kqotc-v1-' + _sessionId).get('players').map().on((data, key) => {
-      if (!_qrActive || !data || !data.name || _seenKeys.has(key)) return;
-      _seenKeys.add(key);
-      _addPlayerFromQR(data.name.trim());
-    });
+    _unsubFirestore = firebase.firestore()
+      .collection('sessions').doc(_sessionId).collection('players')
+      .onSnapshot(snap => {
+        snap.docChanges().forEach(ch => {
+          if (ch.type !== 'added') return;
+          const key  = ch.doc.id;
+          const name = ch.doc.data().name;
+          if (!_qrActive || !name || _seenKeys.has(key)) return;
+          _seenKeys.add(key);
+          _addPlayerFromQR(name.trim());
+        });
+      });
   }
 }
 
@@ -421,6 +423,7 @@ function closeQRCheckin() {
   _qrActive = false;
   clearInterval(_pollTimer);
   _pollTimer = null;
+  if (_unsubFirestore) { _unsubFirestore(); _unsubFirestore = null; }
   document.getElementById('qr-overlay').classList.remove('open');
 }
 
