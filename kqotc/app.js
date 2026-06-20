@@ -270,10 +270,6 @@ function renderTransition({ moversUp, movingDownTeams, stayTeams, newTeams, stay
 
   document.getElementById('transition-content').innerHTML = `
     <div class="court-section">
-      <div class="court-label up">↑ Moving up to King Court (${moversUp.length})</div>
-      ${upList}
-    </div>
-    <div class="court-section">
       <div class="court-label down">↓ Moving down to Work-up (${movingDownTeams.length} team${movingDownTeams.length !== 1 ? 's' : ''})</div>
       ${downList}
     </div>
