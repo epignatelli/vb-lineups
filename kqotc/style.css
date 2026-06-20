@@ -66,8 +66,7 @@ body {
   line-height: 1;
 }
 .app-header .subtitle { font-size: 11px; color: var(--muted); margin-top: 3px; }
-.end-event-btn {
-  margin-left: auto;
+.back-btn, .end-event-btn {
   font-size: 12px;
   color: var(--muted);
   background: none;
@@ -79,6 +78,7 @@ body {
   flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
 }
+.end-event-btn { margin-left: auto; }
 
 /* ─── Check-in screen ─────────────────────────────── */
 .checkin-content {

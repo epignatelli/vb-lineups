@@ -67,6 +67,7 @@
 <div class="screen" id="screen-checkin">
 
   <header class="app-header">
+    <button class="back-btn" onclick="goHome()">← Events</button>
     <div class="logo">
       <svg viewBox="0 0 24 24" fill="none" stroke="#0f1117" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 20h18"/>
@@ -77,7 +78,6 @@
       <h1>KQOTC</h1>
       <div class="subtitle" id="checkin-tournament-name"></div>
     </div>
-    <button class="end-event-btn" onclick="goHome()">← Events</button>
   </header>
 
   <div class="checkin-content">
@@ -149,7 +149,8 @@
 <div class="screen" id="screen-round">
 
   <header class="app-header">
-    <div class="logo" onclick="goHome()" style="cursor:pointer" title="All events">
+    <button class="back-btn" onclick="goHome()">← Events</button>
+    <div class="logo">
       <svg viewBox="0 0 24 24" fill="none" stroke="#0f1117" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 20h18"/>
         <path d="M5 20 3 11l5 3.5L12 6l4 8.5L21 11l-2 9"/>
@@ -181,7 +182,8 @@
 <div class="screen" id="screen-transition">
 
   <header class="app-header">
-    <div class="logo" onclick="goHome()" style="cursor:pointer" title="All events">
+    <button class="back-btn" onclick="goHome()">← Events</button>
+    <div class="logo">
       <svg viewBox="0 0 24 24" fill="none" stroke="#0f1117" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 20h18"/>
         <path d="M5 20 3 11l5 3.5L12 6l4 8.5L21 11l-2 9"/>
@@ -200,10 +202,7 @@
       <button class="cta-btn secondary-btn" onclick="showScreen('round')">← Back</button>
       <button class="cta-btn" onclick="startNextRound()">Round <span id="next-round-num">2</span> →</button>
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="end-tourney-btn" onclick="goHome()" style="flex:0 0 auto;padding:0 16px">← Events</button>
-      <button class="end-tourney-btn" onclick="endEvent()">End tournament &amp; see results</button>
-    </div>
+    <button class="end-tourney-btn" onclick="endEvent()">End tournament &amp; see results</button>
   </div>
 </div>
 
@@ -214,6 +213,7 @@
 <div class="screen" id="screen-leaderboard">
 
   <header class="app-header">
+    <button class="back-btn" onclick="goHome()">← Events</button>
     <div class="logo">
       <svg viewBox="0 0 24 24" fill="none" stroke="#0f1117" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 20h18"/>
@@ -229,7 +229,7 @@
   <div class="round-content" id="leaderboard-content"></div>
 
   <div class="footer">
-    <button class="cta-btn secondary-btn" onclick="goHome()">← Events</button>
+    <button class="cta-btn" onclick="goHome()">← Back to events</button>
   </div>
 </div>
 
