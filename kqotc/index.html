@@ -69,11 +69,28 @@
     <button class="debug-btn" onclick="debugFillPlayers()">Fill players</button>
   </div>
 
-  <div class="footer">
-    <button class="cta-btn" id="start-btn" onclick="startEvent()" disabled>
-      Start event
-    </button>
+  <div class="footer" style="gap:8px">
+    <button class="cta-btn secondary-btn" onclick="openQRCheckin()">QR check-in</button>
+    <button class="cta-btn" id="start-btn" onclick="startEvent()" disabled>Start event</button>
   </div>
+
+  <!-- QR check-in overlay -->
+  <div class="qr-overlay" id="qr-overlay">
+    <div class="qr-panel">
+      <div class="qr-header">
+        <span class="qr-title">Scan to check in</span>
+        <button class="qr-close" onclick="closeQRCheckin()">✕</button>
+      </div>
+      <div class="qr-code-wrap">
+        <img id="qr-img" src="" alt="QR code" width="200" height="200" />
+      </div>
+      <div class="qr-session-label">Code: <strong id="qr-code-text"></strong></div>
+      <div class="qr-status" id="qr-status">Waiting for players…</div>
+      <div class="qr-player-list" id="qr-player-list"></div>
+      <button class="cta-btn" onclick="closeQRCheckin()">Done</button>
+    </div>
+  </div>
+
 </div>
 
 
@@ -164,6 +181,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
 <script src="./logic.js"></script>
 <script src="./app.js"></script>
 </body>

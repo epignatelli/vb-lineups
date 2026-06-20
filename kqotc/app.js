@@ -345,6 +345,63 @@ function newEvent() {
   renderCheckin();
 }
 
+// ─── QR / Gun self check-in ────────────────────────────────────────────────────
+let _gun        = null;
+let _sessionId  = null;
+let _qrActive   = false;
+let _seenKeys   = new Set();
+
+function getGun() {
+  if (!_gun) _gun = Gun(['https://gun-rs.fly.dev/gun', 'https://peer.wallie.io/gun']);
+  return _gun;
+}
+
+function genSessionId() {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+function openQRCheckin() {
+  _sessionId = genSessionId();
+  _qrActive  = true;
+  _seenKeys  = new Set();
+
+  const joinUrl = location.href.split('?')[0].replace(/\/?$/, '/') + 'join/?s=' + _sessionId;
+  document.getElementById('qr-img').src =
+    `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(joinUrl)}&qzone=1`;
+  document.getElementById('qr-code-text').textContent = _sessionId;
+  document.getElementById('qr-status').textContent = 'Waiting for players…';
+  document.getElementById('qr-player-list').innerHTML = '';
+  document.getElementById('qr-overlay').classList.add('open');
+
+  getGun().get('kqotc-v1-' + _sessionId).get('players').map().on((data, key) => {
+    if (!_qrActive || !data || !data.name || _seenKeys.has(key)) return;
+    _seenKeys.add(key);
+    _addPlayerFromQR(data.name.trim());
+  });
+}
+
+function closeQRCheckin() {
+  _qrActive = false;
+  document.getElementById('qr-overlay').classList.remove('open');
+}
+
+function _addPlayerFromQR(name) {
+  if (!name) return;
+  players.push({ id: Date.now() + Math.random(), name, cumScore: 0 });
+  savePlayers();
+  renderCheckin();
+
+  const list = document.getElementById('qr-player-list');
+  const row  = document.createElement('div');
+  row.className = 'qr-player-row';
+  row.textContent = name;
+  list.prepend(row);
+
+  const n = _seenKeys.size;
+  document.getElementById('qr-status').textContent =
+    `${n} player${n !== 1 ? 's' : ''} checked in`;
+}
+
 // ─── Debug helpers ─────────────────────────────────────────────────────────────
 const _DEBUG_NAMES = [
   'Alice','Bob','Charlie','Diana','Eve','Frank','Grace','Henry',
