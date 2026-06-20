@@ -2,154 +2,116 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0f1117" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="VB Lineups" />
-  <meta name="description" content="Generate valid volleyball team combinations from your roster." />
-  <title>VB Lineups</title>
-  <link rel="manifest" href="./manifest.json" />
+  <title>Apps</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./style.css" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --border:   rgba(255,255,255,0.07);
+      --border2:  rgba(255,255,255,0.14);
+      --text:     #f0f2f8;
+      --muted:    #7a80a0;
+      --green:    #22c97a;
+      --sport:    'Barlow Condensed', system-ui, sans-serif;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
+    }
+    header {
+      padding: 32px 24px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 {
+      font-family: var(--sport);
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    header p {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .apps {
+      padding: 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .app-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: border-color .15s;
+    }
+    .app-card:hover { border-color: var(--border2); }
+    .app-card-icon {
+      width: 48px; height: 48px;
+      background: var(--green);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .app-card-icon svg { width: 26px; height: 26px; }
+    .app-card h2 {
+      font-family: var(--sport);
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+    }
+    .app-card p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+      flex: 1;
+    }
+    .app-card-open {
+      align-self: flex-start;
+      font-family: var(--sport);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--green);
+    }
+  </style>
 </head>
 <body>
-
-<!-- ══════════════════════════════════════════════════
-     SCREEN 1 — SETUP
-══════════════════════════════════════════════════ -->
-<div class="screen active" id="screen-setup">
-
-  <header class="app-header">
-    <div class="logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#0f1117" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="2" y="6" width="20" height="12" rx="1.5" stroke-width="2"/>
-        <line x1="12" y1="6" x2="12" y2="18" stroke-width="2.5"/>
-        <line x1="7.5" y1="6" x2="7.5" y2="18" stroke-width="1.2"/>
-        <line x1="16.5" y1="6" x2="16.5" y2="18" stroke-width="1.2"/>
-      </svg>
-    </div>
-    <div>
-      <h1>VB Lineups</h1>
-      <div class="subtitle">Build your lineup.</div>
-    </div>
-    <button class="install-btn" id="install-btn" onclick="installApp()" style="display:none">
-      Install app
-    </button>
+  <header>
+    <h1>Apps</h1>
+    <p>A collection of tools for volleyball.</p>
   </header>
 
-  <div class="install-toast" id="install-toast" style="display:none">
-    <span>Tap <strong>Share</strong> → <strong>Add to Home Screen</strong> to install</span>
-    <button onclick="document.getElementById('install-toast').style.display='none'">✕</button>
-  </div>
-
-  <div class="setup-content" id="setup-content">
-
-    <!-- Rules -->
-    <div style="margin-bottom:24px">
-      <div class="step-label">Rules</div>
-      <div class="setting-row">
-        <span class="setting-label">Min women on court</span>
-        <div class="stepper">
-          <button class="stepper-btn" onclick="adjustMinWomen(-1)">−</button>
-          <span class="stepper-val" id="min-women-val">2</span>
-          <button class="stepper-btn" onclick="adjustMinWomen(1)">+</button>
-        </div>
+  <div class="apps">
+    <a class="app-card" href="./apps/vb-lineups/">
+      <div class="app-card-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0f1117" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="6" width="20" height="12" rx="1.5" stroke-width="2"/>
+          <line x1="12" y1="6" x2="12" y2="18" stroke-width="2.5"/>
+          <line x1="7.5" y1="6" x2="7.5" y2="18" stroke-width="1.2"/>
+          <line x1="16.5" y1="6" x2="16.5" y2="18" stroke-width="1.2"/>
+        </svg>
       </div>
-      <div class="setting-row" style="margin-top:8px">
-        <span class="setting-label">Split OH / Opp roles</span>
-        <label class="switch">
-          <input type="checkbox" id="split-hitters-toggle" onchange="setSplitHitters(this.checked)" />
-          <span class="switch-track"></span>
-        </label>
-      </div>
-    </div>
-
-    <!-- Add player row -->
-    <div style="margin-bottom:24px">
-      <div class="step-label">Add players</div>
-      <div class="add-player-row">
-        <input type="text" id="player-name-input" placeholder="Player name" maxlength="24" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" />
-        <div class="gender-toggle">
-          <button id="gender-m" class="active-m" onclick="setGender('m')" title="Man">♂</button>
-          <button id="gender-f" onclick="setGender('f')" title="Woman">♀</button>
-        </div>
-        <button class="add-btn" onclick="addPlayer()" title="Add player">+</button>
-      </div>
-
-      <div class="step-label" style="margin-bottom:10px">Positions</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px">
-        <span style="font-size:12px;color:var(--muted);line-height:1.6">Tap the position chips on each player to assign roles. Players can hold multiple positions.</span>
-      </div>
-
-      <!-- Roster -->
-      <div class="roster-header">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span class="step-label" style="margin-bottom:0">Roster</span>
-          <span class="roster-count" id="roster-count"></span>
-        </div>
-        <button id="clear-roster-btn" class="clear-roster-btn" onclick="clearRoster()" style="display:none">Clear all</button>
-      </div>
-      <div id="roster-list" class="player-list"></div>
-      <div id="roster-empty" class="empty-roster">No players yet — add some above</div>
-    </div>
-
+      <h2>VB Lineups</h2>
+      <p>Build valid lineups for mixed volleyball. Finds every combination that satisfies your gender rotation rules.</p>
+      <span class="app-card-open">Open →</span>
+    </a>
   </div>
-
-  <!-- Validation -->
-  <div class="validation" id="validation-msg"></div>
-
-  <!-- CTA -->
-  <div class="setup-footer">
-    <button class="cta-btn" id="build-btn" onclick="buildLineups()" disabled>
-      Build lineups
-    </button>
-  </div>
-</div>
-
-
-<!-- ══════════════════════════════════════════════════
-     SCREEN 2 — RESULTS
-══════════════════════════════════════════════════ -->
-<div class="screen" id="screen-results">
-
-  <div class="results-header-bar">
-    <button class="back-btn" onclick="goSetup()">← Roster</button>
-    <span class="results-title">Lineups</span>
-    <span class="lineup-count" id="lineup-count"></span>
-  </div>
-
-  <div class="results-body">
-
-    <!-- Filters -->
-    <div class="filter-panel" id="filter-panel">
-      <!-- injected by JS -->
-    </div>
-
-    <!-- Sort -->
-    <div class="sort-bar">
-      <button class="sort-btn active" data-sort="idx">Default</button>
-      <button class="sort-btn" data-sort="wdesc">Most women first</button>
-      <button class="sort-btn" data-sort="wasc">Fewest women first</button>
-      <button class="sort-btn" data-sort="tight">⚠ Rotation-sensitive first</button>
-    </div>
-
-    <div class="results-meta">
-      <span class="results-meta-label" id="results-meta-label"></span>
-      <button class="clear-filters-btn" onclick="clearFilters()">Clear filters</button>
-    </div>
-
-    <div class="legend">
-      <div class="leg"><div class="leg-dot" style="background:var(--green)"></div>Woman</div>
-      <div class="leg"><div class="leg-dot" style="background:var(--amber);border-radius:2px"></div>Rotation-sensitive</div>
-    </div>
-
-    <div class="cards" id="cards"></div>
-  </div>
-</div>
-
-<script src="./app.js"></script>
 </body>
 </html>
