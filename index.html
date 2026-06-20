@@ -7,111 +7,112 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="VB Lineups" />
-  <meta name="description" content="Generate and explore valid volleyball team combinations with position constraints." />
-
+  <meta name="description" content="Generate valid volleyball team combinations from your roster." />
   <title>VB Lineup Builder</title>
   <link rel="manifest" href="./manifest.json" />
   <link rel="stylesheet" href="./style.css" />
-
-  <!-- Apple touch icon fallback (inline SVG as data URI) -->
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
 </head>
 <body>
 
-  <!-- Header -->
-  <header class="header">
-    <div class="header-brand">
-      <div class="header-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#0f1117" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="9"/>
-          <path d="M12 3a9 9 0 0 1 6.36 15.36"/>
-          <path d="M3.64 6.64A9 9 0 0 0 12 21"/>
-          <path d="M12 3v18"/>
-        </svg>
-      </div>
-      <div>
-        <h1>VB Lineups</h1>
-        <div class="header-sub">Volleyball lineup builder</div>
-      </div>
+<!-- ══════════════════════════════════════════════════
+     SCREEN 1 — SETUP
+══════════════════════════════════════════════════ -->
+<div class="screen active" id="screen-setup">
+
+  <header class="app-header">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#0f1117" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 3a9 9 0 0 1 6.36 15.36"/>
+        <path d="M3.64 6.64A9 9 0 0 0 12 21"/>
+        <path d="M12 3v18"/>
+      </svg>
     </div>
-    <div class="count-badge" id="count-badge">— / — lineups</div>
+    <div>
+      <h1>VB Lineups</h1>
+      <div class="subtitle">Set up your roster</div>
+    </div>
   </header>
 
-  <!-- Install banner (hidden until PWA prompt fires) -->
-  <div class="install-banner hidden" id="install-banner">
-    <p>Add to your home screen for offline access</p>
-    <button class="install-btn" id="install-btn">Install</button>
-  </div>
+  <div class="setup-content" id="setup-content">
 
-  <!-- Filters -->
-  <div class="filter-panel">
-
-    <div class="filter-row">
-      <div class="filter-section">
-        <div class="filter-label">Setter <span style="font-weight:400;opacity:.6">(one)</span></div>
-        <div class="pills" id="pg-setter"></div>
-      </div>
-      <div class="filter-section">
-        <div class="filter-label">Libero <span style="font-weight:400;opacity:.6">(one)</span></div>
-        <div class="pills" id="pg-lib"></div>
-      </div>
-    </div>
-
-    <div class="filter-section">
-      <div class="filter-label">Must include hitter <span style="font-weight:400;opacity:.6">(pick any)</span></div>
-      <div class="pills" id="pg-hitter"></div>
-    </div>
-
-    <div class="filter-section">
-      <div class="filter-label">Must include middle <span style="font-weight:400;opacity:.6">(pick any)</span></div>
-      <div class="pills" id="pg-middle"></div>
-    </div>
-
-    <div class="filter-section">
-      <div class="toggle-row">
-        <div class="toggle-label">
-          Rotation-sensitive only
-          <small>Lineups where a middle rotation could leave exactly 2 women</small>
+    <!-- Add player row -->
+    <div style="margin-bottom:24px">
+      <div class="step-label">Add players</div>
+      <div class="add-player-row">
+        <input type="text" id="player-name-input" placeholder="Player name" maxlength="24" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" />
+        <div class="gender-toggle">
+          <button id="gender-m" class="active-m" onclick="setGender('m')" title="Man">♂</button>
+          <button id="gender-f" onclick="setGender('f')" title="Woman">♀</button>
         </div>
-        <label class="switch">
-          <input type="checkbox" id="chk-tight" />
-          <span class="switch-track"></span>
-        </label>
+        <button class="add-btn" onclick="addPlayer()" title="Add player">+</button>
       </div>
-      <div class="toggle-row">
-        <div class="toggle-label">3+ women on court</div>
-        <label class="switch">
-          <input type="checkbox" id="chk-3w" />
-          <span class="switch-track"></span>
-        </label>
+
+      <div class="step-label" style="margin-bottom:10px">Positions</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px">
+        <span style="font-size:12px;color:var(--muted);line-height:1.6">Tap the position chips on each player to assign roles. Players can hold multiple positions.</span>
       </div>
+
+      <!-- Roster -->
+      <div id="roster-list" class="player-list"></div>
+      <div id="roster-empty" class="empty-roster">No players yet — add some above</div>
     </div>
 
   </div>
 
-  <!-- Sort bar -->
-  <div class="sort-bar">
-    <button class="sort-btn active" data-sort="idx">Default</button>
-    <button class="sort-btn" data-sort="wdesc">Most women first</button>
-    <button class="sort-btn" data-sort="wasc">Fewest women first</button>
-    <button class="sort-btn" data-sort="tight">Rotation-sensitive first</button>
-  </div>
+  <!-- Validation -->
+  <div class="validation" id="validation-msg"></div>
 
-  <!-- Results header -->
-  <div class="results-header">
+  <!-- CTA -->
+  <div class="setup-footer">
+    <button class="cta-btn" id="build-btn" onclick="buildLineups()" disabled>
+      Build lineups
+    </button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     SCREEN 2 — RESULTS
+══════════════════════════════════════════════════ -->
+<div class="screen" id="screen-results">
+
+  <div class="results-header-bar">
+    <button class="back-btn" onclick="goSetup()">← Roster</button>
     <span class="results-title">Lineups</span>
-    <button class="clear-btn" id="clear-btn">Clear all filters</button>
+    <span class="lineup-count" id="lineup-count"></span>
   </div>
 
-  <!-- Legend -->
-  <div class="legend">
-    <div class="leg"><div class="leg-dot" style="background:#22c97a"></div>Woman</div>
-    <div class="leg"><div class="leg-dot" style="background:#f5a623;border-radius:2px"></div>Rotation-sensitive</div>
+  <div class="results-body">
+
+    <!-- Filters -->
+    <div class="filter-panel" id="filter-panel">
+      <!-- injected by JS -->
+    </div>
+
+    <!-- Sort -->
+    <div class="sort-bar">
+      <button class="sort-btn active" data-sort="idx">Default</button>
+      <button class="sort-btn" data-sort="wdesc">Most women first</button>
+      <button class="sort-btn" data-sort="wasc">Fewest women first</button>
+      <button class="sort-btn" data-sort="tight">⚠ Rotation-sensitive first</button>
+    </div>
+
+    <div class="results-meta">
+      <span class="results-meta-label" id="results-meta-label"></span>
+      <button class="clear-filters-btn" onclick="clearFilters()">Clear filters</button>
+    </div>
+
+    <div class="legend">
+      <div class="leg"><div class="leg-dot" style="background:var(--green)"></div>Woman</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--amber);border-radius:2px"></div>Rotation-sensitive</div>
+    </div>
+
+    <div class="cards" id="cards"></div>
   </div>
+</div>
 
-  <!-- Cards -->
-  <div class="cards" id="cards"></div>
-
-  <script src="./app.js"></script>
+<script src="./app.js"></script>
 </body>
 </html>
