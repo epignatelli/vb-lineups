@@ -136,16 +136,19 @@
       document.getElementById('name-input').addEventListener('keydown', e => {
         if (e.key === 'Enter') checkIn();
       });
+    }
 
-      async function checkIn() {
-        const input = document.getElementById('name-input');
-        const name  = input.value.trim();
-        const errEl = document.getElementById('error-msg');
-        if (!name) { errEl.style.display = 'block'; input.focus(); return; }
-        errEl.style.display = 'none';
-        document.getElementById('checkin-btn').disabled = true;
-        input.disabled = true;
+    // Must be global so onclick="checkIn()" can reach it
+    async function checkIn() {
+      const input = document.getElementById('name-input');
+      const name  = input.value.trim();
+      const errEl = document.getElementById('error-msg');
+      if (!name) { errEl.style.display = 'block'; input.focus(); return; }
+      errEl.style.display = 'none';
+      document.getElementById('checkin-btn').disabled = true;
+      input.disabled = true;
 
+      try {
         // Try local serve.py first (LAN dev mode)
         let usedLocal = false;
         try {
@@ -163,11 +166,13 @@
             .collection('sessions').doc(sessionId).collection('players')
             .add({ name, ts: firebase.firestore.FieldValue.serverTimestamp() });
         }
-
-        document.getElementById('name-input').style.display = 'none';
-        document.getElementById('checkin-btn').style.display = 'none';
-        document.getElementById('success').style.display = 'flex';
+      } catch (e) {
+        console.error('Check-in error:', e);
       }
+
+      document.getElementById('name-input').style.display = 'none';
+      document.getElementById('checkin-btn').style.display = 'none';
+      document.getElementById('success').style.display = 'flex';
     }
   </script>
 
