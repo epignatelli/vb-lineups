@@ -35,7 +35,15 @@
       <h1>VB Lineups</h1>
       <div class="subtitle">Build your lineup.</div>
     </div>
+    <button class="install-btn" id="install-btn" onclick="installApp()" style="display:none">
+      Install app
+    </button>
   </header>
+
+  <div class="install-toast" id="install-toast" style="display:none">
+    <span>Tap <strong>Share</strong> → <strong>Add to Home Screen</strong> to install</span>
+    <button onclick="document.getElementById('install-toast').style.display='none'">✕</button>
+  </div>
 
   <div class="setup-content" id="setup-content">
 

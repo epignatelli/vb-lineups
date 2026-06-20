@@ -532,6 +532,40 @@ function escHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ─── PWA install ───────────────────────────────────────────────────────────────
+let installPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  installPrompt = e;
+  document.getElementById('install-btn').style.display = 'inline-flex';
+});
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-btn').style.display = 'none';
+  installPrompt = null;
+});
+
+function installApp() {
+  if (installPrompt) {
+    installPrompt.prompt();
+    installPrompt.userChoice.then(() => { installPrompt = null; });
+    document.getElementById('install-btn').style.display = 'none';
+    return;
+  }
+  // iOS Safari: no prompt API, show manual instructions
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  if (isIOS) {
+    const toast = document.getElementById('install-toast');
+    toast.style.display = toast.style.display === 'none' ? 'flex' : 'none';
+  }
+}
+
+// Show install button on iOS if not already in standalone mode
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !navigator.standalone) {
+  document.getElementById('install-btn').style.display = 'inline-flex';
+}
+
 // ─── Service worker ────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');
