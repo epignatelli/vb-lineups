@@ -589,18 +589,7 @@ function _startPlayerListener() {
         const p = { id: d.id, name: data.name, cumScore: data.cumScore || 0 };
         players.push(p);
         renderCheckin();
-        if (_qrActive) {
-          const list = document.getElementById('qr-player-list');
-          if (list) {
-            const row = document.createElement('div');
-            row.className = 'qr-player-row';
-            row.textContent = p.name;
-            list.prepend(row);
-            const count = list.children.length;
-            document.getElementById('qr-status').textContent =
-              `${count} player${count !== 1 ? 's' : ''} via QR`;
-          }
-        }
+        if (_qrActive) _appendToQRPanel(p.name);
       } else if (change.type === 'modified') {
         const p = players.find(p => p.id === d.id);
         if (p) {
@@ -610,7 +599,19 @@ function _startPlayerListener() {
         }
       }
     });
-  });
+  }, err => console.error('Player listener error:', err));
+}
+
+function _appendToQRPanel(name) {
+  const list = document.getElementById('qr-player-list');
+  if (!list) return;
+  const row = document.createElement('div');
+  row.className   = 'qr-player-row';
+  row.textContent = name;
+  list.prepend(row);
+  const count = list.children.length;
+  document.getElementById('qr-status').textContent =
+    `${count} player${count !== 1 ? 's' : ''} via QR`;
 }
 
 function _stopPlayerListener() {
@@ -640,6 +641,7 @@ function _updateSubmittedScores() {
 async function openQRCheckin() {
   if (!_tournamentId) return;
   _qrActive = true;
+  _startPlayerListener(); // ensure listener is live when QR panel opens
 
   let base = location.href.split('?')[0].replace(/\/?$/, '/');
   try {
