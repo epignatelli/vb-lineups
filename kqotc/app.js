@@ -7,14 +7,12 @@ let round       = 0;
 let numTopTeams = 0;
 let topTeams    = [];   // { id, playerIds[], roundScore }
 let workUp      = [];   // { playerId, roundScore }
-let pendingNext = null; // prepared next-round state
+let pendingNext = null;
 
 let _tournamentId   = null;
 let _tournamentName = '';
 let _currentUser    = null;
 let _isAdmin        = false;
-
-function savePlayers() { saveTournament(); }
 
 // ─── Firebase / Auth ───────────────────────────────────────────────────────────
 function getDb()   { return firebase.firestore(); }
@@ -34,9 +32,7 @@ async function signIn() {
   catch(e) { if (e.code !== 'auth/popup-closed-by-user') console.error(e); }
 }
 
-async function signOut() {
-  await getAuth().signOut();
-}
+async function signOut() { await getAuth().signOut(); }
 
 function handleAuthClick() {
   if (_currentUser) signOut();
@@ -44,8 +40,8 @@ function handleAuthClick() {
 }
 
 function _updateAuthUI() {
-  const btn     = document.getElementById('auth-btn');
-  const newBtn  = document.getElementById('home-new-event-btn');
+  const btn    = document.getElementById('auth-btn');
+  const newBtn = document.getElementById('home-new-event-btn');
   if (!btn) return;
   if (_currentUser) {
     const label = _currentUser.displayName?.split(' ')[0] || _currentUser.email;
@@ -59,10 +55,23 @@ function _updateAuthUI() {
 }
 
 // ─── Firebase / Tournaments ────────────────────────────────────────────────────
-function _tourRef() { return getDb().collection('tournaments').doc(_tournamentId); }
+function _tourRef()    { return getDb().collection('tournaments').doc(_tournamentId); }
+function _playersRef() { return _tourRef().collection('players'); }
+
+async function _loadPlayers(id) {
+  const snap = await getDb().collection('tournaments').doc(id).collection('players').get();
+  return snap.docs.map(d => ({ id: d.id, name: d.data().name, cumScore: d.data().cumScore || 0 }));
+}
+
+async function _savePlayerScores() {
+  if (!_tournamentId || !players.length) return;
+  const batch = getDb().batch();
+  players.forEach(p => batch.update(_playersRef().doc(p.id), { cumScore: p.cumScore }));
+  await batch.commit().catch(e => console.error('Score save failed:', e));
+}
 
 function _localState() {
-  return { players, round, numTopTeams, topTeams, workUp, pendingNext };
+  return { round, numTopTeams, topTeams, workUp, pendingNext };
 }
 
 async function saveTournament(extra = {}) {
@@ -78,12 +87,11 @@ async function _loadDoc(id) {
 
 function _applyData(data) {
   _tournamentName = data.name || '';
-  players         = data.players     || [];
-  round           = data.round       || 0;
-  numTopTeams     = data.numTopTeams || 0;
-  topTeams        = data.topTeams    || [];
-  workUp          = data.workUp      || [];
-  pendingNext     = data.pendingNext || null;
+  round       = data.round       || 0;
+  numTopTeams = data.numTopTeams || 0;
+  topTeams    = data.topTeams    || [];
+  workUp      = data.workUp      || [];
+  pendingNext = data.pendingNext || null;
 }
 
 function _navigateToScreen(data) {
@@ -103,11 +111,12 @@ function _navigateToScreen(data) {
 }
 
 async function openTournament(id) {
-  const data = await _loadDoc(id);
+  const [data, loadedPlayers] = await Promise.all([_loadDoc(id), _loadPlayers(id)]);
   if (!data) return;
   _tournamentId = id;
   localStorage.setItem('kqotc-last-tournament', id);
   _applyData(data);
+  players = loadedPlayers;
   _navigateToScreen(data);
 }
 
@@ -149,7 +158,7 @@ async function renderHome() {
 
 function _renderTourItem(t) {
   const date  = t.date ? t.date.toDate().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-  const count = t.players?.length || 0;
+  const count = t.playerCount || 0;
   const badge = t.status === 'active'
     ? `<span class="tour-badge active">Active</span>`
     : t.status === 'upcoming'
@@ -174,7 +183,11 @@ async function deleteTournament(id, name) {
   if (!_isAdmin) return;
   if (!confirm(`Delete "${name}"?\n\nThis will permanently remove the event and all its data.`)) return;
   try {
-    await getDb().collection('tournaments').doc(id).delete();
+    const snap  = await getDb().collection('tournaments').doc(id).collection('players').get();
+    const batch = getDb().batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    batch.delete(getDb().collection('tournaments').doc(id));
+    await batch.commit();
     await renderHome();
   } catch(e) {
     console.error('Delete failed:', e);
@@ -203,7 +216,7 @@ async function submitCreateTournament() {
 
   const docData = {
     name, status: 'upcoming', screen: 'checkin',
-    round: 0, numTopTeams: 0, players: [],
+    round: 0, numTopTeams: 0, playerCount: 0,
     topTeams: [], workUp: [], pendingNext: null, transitionResult: null,
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   };
@@ -235,19 +248,21 @@ function showScreen(id) {
 }
 
 // ─── Check-in screen ───────────────────────────────────────────────────────────
-function addPlayer() {
+async function addPlayer() {
   const input = document.getElementById('player-input');
   const name  = input.value.trim();
   if (!name) return;
   if (players.find(p => p.name.toLowerCase() === name.toLowerCase())) {
     input.select(); return;
   }
-  const p = { id: Date.now() + Math.random(), name, cumScore: 0 };
+  const ref = _playersRef().doc();
+  const p   = { id: ref.id, name, cumScore: 0 };
+  await ref.set({ name, cumScore: 0, joinedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  await _tourRef().update({ playerCount: firebase.firestore.FieldValue.increment(1) });
   players.push(p);
-  if (_qrActive) _seenKeys.add(String(p.id));
+  if (_qrActive) _seenKeys.add(p.id);
   input.value = '';
   input.focus();
-  savePlayers();
   renderCheckin();
 }
 
@@ -255,9 +270,10 @@ document.getElementById('player-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') addPlayer();
 });
 
-function removePlayer(id) {
+async function removePlayer(id) {
+  await _playersRef().doc(id).delete();
+  await _tourRef().update({ playerCount: firebase.firestore.FieldValue.increment(-1) });
   players = players.filter(p => p.id !== id);
-  savePlayers();
   renderCheckin();
 }
 
@@ -294,7 +310,7 @@ function renderCheckin() {
     <div class="player-row">
       <span class="player-num">${i + 1}</span>
       <span class="player-name">${esc(p.name)}</span>
-      <button class="remove-btn" onclick="removePlayer(${p.id})">×</button>
+      <button class="remove-btn" onclick="removePlayer('${p.id}')">×</button>
     </div>`).join('');
 }
 
@@ -360,8 +376,8 @@ function renderRound() {
         <input class="score-input" type="number" min="0" inputmode="numeric"
           value="${wu.roundScore}"
           onfocus="this.select()"
-          oninput="setWorkScore(${wu.playerId}, this.value)"
-          onblur="blurWorkScore(${wu.playerId}, this)" />
+          oninput="setWorkScore('${wu.playerId}', this.value)"
+          onblur="blurWorkScore('${wu.playerId}', this)" />
       </div>`;
   }).join('') : '<div class="empty-note">No players on work-up this round</div>';
 
@@ -423,6 +439,7 @@ function blurWorkScore(playerId, el) {
 // ─── End round ─────────────────────────────────────────────────────────────────
 function endRound() {
   players = computeScores(players, topTeams, workUp);
+  _savePlayerScores();
 
   const result = computeTransition(topTeams, workUp, numTopTeams, round);
   result.newTeams.forEach((t, i) => { t.id = Date.now() + i; });
@@ -520,48 +537,41 @@ function renderLeaderboard() {
     </div>`;
 }
 
-function clearPlayers() {
+async function clearPlayers() {
   if (!players.length) return;
   if (!confirm(`Remove all ${players.length} players? This cannot be undone.`)) return;
+  const snap  = await _playersRef().get();
+  const batch = getDb().batch();
+  snap.docs.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+  await _tourRef().update({ playerCount: 0 });
   players = [];
-  savePlayers();
   renderCheckin();
 }
 
-function resetScores() {
+async function resetScores() {
   if (!players.some(p => p.cumScore > 0)) return;
   if (!confirm('Reset all cumulative scores to zero? This cannot be undone.')) return;
-  players.forEach(p => { p.cumScore = 0; });
-  savePlayers();
+  const batch = getDb().batch();
+  players.forEach(p => {
+    p.cumScore = 0;
+    batch.update(_playersRef().doc(p.id), { cumScore: 0 });
+  });
+  await batch.commit();
   renderCheckin();
 }
 
 // ─── QR / self check-in ────────────────────────────────────────────────────────
 let _qrActive       = false;
 let _seenKeys       = new Set();
-let _pollTimer      = null;
-let _pollTotal      = 0;
-let _localMode      = false;
 let _unsubFirestore = null;
 
 async function openQRCheckin() {
   if (!_tournamentId) return;
-  _qrActive  = true;
-  _seenKeys  = new Set(players.map(p => String(p.id)));
-  _pollTotal = 0;
-  _localMode = false;
+  _qrActive = true;
+  _seenKeys = new Set(players.map(p => p.id));
 
-  let base = location.href.split('?')[0].replace(/\/?$/, '/');
-
-  try {
-    const r = await fetch('/api/ip');
-    if (r.ok) {
-      const { ip } = await r.json();
-      if (ip && ip !== '127.0.0.1') base = base.replace(location.hostname, ip);
-      _localMode = true;
-    }
-  } catch(e) {}
-
+  const base    = location.href.split('?')[0].replace(/\/?$/, '/');
   const joinUrl = base + 'join/?t=' + _tournamentId;
   document.getElementById('qr-join-url').value  = joinUrl;
   updateQRUrl(joinUrl);
@@ -570,46 +580,27 @@ async function openQRCheckin() {
   document.getElementById('qr-player-list').innerHTML = '';
   document.getElementById('qr-overlay').classList.add('open');
 
-  if (_localMode) {
-    _pollTimer = setInterval(_pollPlayers, 2000);
-  } else {
-    _unsubFirestore = firebase.firestore()
-      .collection('tournaments').doc(_tournamentId)
-      .onSnapshot(doc => {
-        if (!_qrActive) return;
-        const allPlayers = doc.data()?.players || [];
-        // Sync seen set with current local state so manual adds don't double-appear
-        players.forEach(p => _seenKeys.add(String(p.id)));
-        allPlayers.forEach(p => {
-          const key = String(p.id);
-          if (_seenKeys.has(key)) return;
-          _seenKeys.add(key);
-          if (!players.find(lp => String(lp.id) === key)) {
-            players.push(p);
-            renderCheckin();
-          }
-          const list = document.getElementById('qr-player-list');
-          const row  = document.createElement('div');
-          row.className   = 'qr-player-row';
-          row.textContent = p.name;
-          list.prepend(row);
-          const count = list.children.length;
-          document.getElementById('qr-status').textContent =
-            `${count} player${count !== 1 ? 's' : ''} via QR`;
-        });
-      });
-  }
-}
-
-async function _pollPlayers() {
-  if (!_qrActive) return;
-  try {
-    const r = await fetch(`/api/players?t=${_tournamentId}&after=${_pollTotal}`);
-    if (!r.ok) return;
-    const { players: newNames, total } = await r.json();
-    newNames.forEach(name => _addPlayerFromQR(name));
-    _pollTotal = total;
-  } catch(e) {}
+  _unsubFirestore = _playersRef().onSnapshot(snap => {
+    if (!_qrActive) return;
+    players.forEach(p => _seenKeys.add(p.id));
+    snap.docChanges().forEach(change => {
+      if (change.type !== 'added') return;
+      const d = change.doc;
+      if (_seenKeys.has(d.id)) return;
+      _seenKeys.add(d.id);
+      const p = { id: d.id, name: d.data().name, cumScore: d.data().cumScore || 0 };
+      players.push(p);
+      renderCheckin();
+      const list  = document.getElementById('qr-player-list');
+      const row   = document.createElement('div');
+      row.className   = 'qr-player-row';
+      row.textContent = p.name;
+      list.prepend(row);
+      const count = list.children.length;
+      document.getElementById('qr-status').textContent =
+        `${count} player${count !== 1 ? 's' : ''} via QR`;
+    });
+  });
 }
 
 function updateQRUrl(url) {
@@ -619,29 +610,8 @@ function updateQRUrl(url) {
 
 function closeQRCheckin() {
   _qrActive = false;
-  clearInterval(_pollTimer);
-  _pollTimer = null;
   if (_unsubFirestore) { _unsubFirestore(); _unsubFirestore = null; }
   document.getElementById('qr-overlay').classList.remove('open');
-}
-
-function _addPlayerFromQR(name) {
-  if (!name) return;
-  const p = { id: Date.now() + Math.random(), name, cumScore: 0 };
-  players.push(p);
-  _seenKeys.add(String(p.id));
-  savePlayers();
-  renderCheckin();
-
-  const list = document.getElementById('qr-player-list');
-  const row  = document.createElement('div');
-  row.className   = 'qr-player-row';
-  row.textContent = name;
-  list.prepend(row);
-
-  const count = list.children.length;
-  document.getElementById('qr-status').textContent =
-    `${count} player${count !== 1 ? 's' : ''} via QR`;
 }
 
 // ─── Debug helpers ─────────────────────────────────────────────────────────────
@@ -652,14 +622,21 @@ const _DEBUG_NAMES = [
   'Yara','Zoe','Aaron','Bella','Carlos','Demi','Elliot','Fiona',
 ];
 
-function debugFillPlayers() {
-  const n    = Math.max(1, parseInt(document.getElementById('debug-n').value) || 24);
-  const pool = [..._DEBUG_NAMES].sort(() => Math.random() - 0.5);
+async function debugFillPlayers() {
+  const n     = Math.max(1, parseInt(document.getElementById('debug-n').value) || 24);
+  const pool  = [..._DEBUG_NAMES].sort(() => Math.random() - 0.5);
+  const batch = getDb().batch();
+  const now   = firebase.firestore.FieldValue.serverTimestamp();
+  const newPlayers = [];
   for (let i = 0; i < n; i++) {
     const name = pool[i % pool.length] + (i >= pool.length ? ` ${Math.floor(i / pool.length) + 1}` : '');
-    players.push({ id: Date.now() + i, name, cumScore: 0 });
+    const ref  = _playersRef().doc();
+    batch.set(ref, { name, cumScore: 0, joinedAt: now });
+    newPlayers.push({ id: ref.id, name, cumScore: 0 });
   }
-  saveTournament();
+  await batch.commit();
+  await _tourRef().update({ playerCount: firebase.firestore.FieldValue.increment(n) });
+  players.push(...newPlayers);
   renderCheckin();
 }
 
@@ -676,7 +653,6 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 async function boot() {
   if (DEBUG) document.querySelectorAll('.debug-bar').forEach(el => el.style.display = 'flex');
 
-  // Wait for auth state to resolve before rendering anything
   await new Promise(resolve => {
     const unsub = getAuth().onAuthStateChanged(async user => {
       unsub();
@@ -686,7 +662,6 @@ async function boot() {
     });
   });
 
-  // Re-render home auth UI on subsequent sign-in / sign-out
   getAuth().onAuthStateChanged(async user => {
     _currentUser = user;
     _isAdmin     = await _checkAdmin(user);
@@ -700,10 +675,11 @@ async function boot() {
   const lastId = localStorage.getItem('kqotc-last-tournament');
   if (lastId) {
     try {
-      const data = await _loadDoc(lastId);
+      const [data, loadedPlayers] = await Promise.all([_loadDoc(lastId), _loadPlayers(lastId)]);
       if (data) {
         _tournamentId = lastId;
         _applyData(data);
+        players = loadedPlayers;
         _navigateToScreen(data);
         return;
       }
