@@ -345,6 +345,105 @@ function newEvent() {
   renderCheckin();
 }
 
+// ─── QR / self check-in ────────────────────────────────────────────────────────
+let _sessionId      = null;
+let _qrActive       = false;
+let _seenKeys       = new Set();
+let _pollTimer      = null;
+let _pollTotal      = 0;
+let _localMode      = false;
+let _unsubFirestore = null;
+
+function genSessionId() {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+async function openQRCheckin() {
+  _sessionId  = genSessionId();
+  _qrActive   = true;
+  _seenKeys   = new Set();
+  _pollTotal  = 0;
+  _localMode  = false;
+
+  let base = location.href.split('?')[0].replace(/\/?$/, '/');
+
+  // Detect serve.py — if found, use LAN IP + local polling
+  try {
+    const r = await fetch('/api/ip');
+    if (r.ok) {
+      const { ip } = await r.json();
+      if (ip && ip !== '127.0.0.1') base = base.replace(location.hostname, ip);
+      _localMode = true;
+    }
+  } catch (e) { /* production — use Firestore */ }
+
+  const joinUrl = base + 'join/?s=' + _sessionId;
+  document.getElementById('qr-join-url').value = joinUrl;
+  updateQRUrl(joinUrl);
+  document.getElementById('qr-code-text').textContent = _sessionId;
+  document.getElementById('qr-status').textContent = 'Waiting for players…';
+  document.getElementById('qr-player-list').innerHTML = '';
+  document.getElementById('qr-overlay').classList.add('open');
+
+  if (_localMode) {
+    _pollTimer = setInterval(_pollPlayers, 2000);
+  } else {
+    _unsubFirestore = firebase.firestore()
+      .collection('sessions').doc(_sessionId).collection('players')
+      .onSnapshot(snap => {
+        snap.docChanges().forEach(ch => {
+          if (ch.type !== 'added') return;
+          const key  = ch.doc.id;
+          const name = ch.doc.data().name;
+          if (!_qrActive || !name || _seenKeys.has(key)) return;
+          _seenKeys.add(key);
+          _addPlayerFromQR(name.trim());
+        });
+      });
+  }
+}
+
+async function _pollPlayers() {
+  if (!_qrActive) return;
+  try {
+    const r = await fetch(`/api/players?s=${_sessionId}&after=${_pollTotal}`);
+    if (!r.ok) return;
+    const { players, total } = await r.json();
+    players.forEach(name => _addPlayerFromQR(name));
+    _pollTotal = total;
+  } catch (e) {}
+}
+
+function updateQRUrl(url) {
+  document.getElementById('qr-img').src =
+    `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}&qzone=1`;
+}
+
+function closeQRCheckin() {
+  _qrActive = false;
+  clearInterval(_pollTimer);
+  _pollTimer = null;
+  if (_unsubFirestore) { _unsubFirestore(); _unsubFirestore = null; }
+  document.getElementById('qr-overlay').classList.remove('open');
+}
+
+function _addPlayerFromQR(name) {
+  if (!name) return;
+  players.push({ id: Date.now() + Math.random(), name, cumScore: 0 });
+  savePlayers();
+  renderCheckin();
+
+  const list = document.getElementById('qr-player-list');
+  const row  = document.createElement('div');
+  row.className = 'qr-player-row';
+  row.textContent = name;
+  list.prepend(row);
+
+  const n = _seenKeys.size;
+  document.getElementById('qr-status').textContent =
+    `${n} player${n !== 1 ? 's' : ''} checked in`;
+}
+
 // ─── Debug helpers ─────────────────────────────────────────────────────────────
 const _DEBUG_NAMES = [
   'Alice','Bob','Charlie','Diana','Eve','Frank','Grace','Henry',
@@ -355,7 +454,6 @@ const _DEBUG_NAMES = [
 
 function debugFillPlayers() {
   const n = Math.max(1, parseInt(document.getElementById('debug-n').value) || 24);
-  players = [];
   const pool = [..._DEBUG_NAMES].sort(() => Math.random() - 0.5);
   for (let i = 0; i < n; i++) {
     const name = pool[i % pool.length] + (i >= pool.length ? ` ${Math.floor(i / pool.length) + 1}` : '');
