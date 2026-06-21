@@ -5,7 +5,8 @@ let _isAdmin      = false;
 let _isCoach      = false;
 let _legacyAdmin  = false;   // cached check against admins/{email} collection
 let _userDocUnsub = null;    // unsubscribe fn for own user doc listener
-let _editingId    = null;    // session ID being edited, null when creating
+let _editingId            = null;   // session ID being edited, null when creating
+let _pendingJoinSessionId = null;   // session to join after sign-in completes
 
 // ─── Firebase ──────────────────────────────────────────────────────────────────
 function getDb()   { return firebase.firestore(); }
@@ -21,12 +22,18 @@ function _userRef(uid)            { return _usersRef().doc(uid); }
 async function _upsertUserDoc(user) {
   const ref = _userRef(user.uid);
   try {
-    const doc = await ref.get();
+    const doc          = await ref.get();
+    const currentRoles = doc.data()?.roles || [];
+    // Sync legacy admin status into roles (bootstrap path)
+    let roles = currentRoles.length ? currentRoles : ['player'];
+    if (_legacyAdmin && !roles.includes('admin')) roles = [...roles, 'admin'];
+
     if (doc.exists) {
       await ref.update({
         name:      user.displayName || doc.data().name || '',
         email:     user.email || '',
         photoURL:  user.photoURL || '',
+        roles,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
     } else {
@@ -34,7 +41,7 @@ async function _upsertUserDoc(user) {
         name:      user.displayName || '',
         email:     user.email || '',
         photoURL:  user.photoURL || '',
-        roles:     ['player'],
+        roles,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
@@ -87,15 +94,28 @@ getAuth().onAuthStateChanged(async user => {
   if (_userDocUnsub) { _userDocUnsub(); _userDocUnsub = null; }
 
   if (user) {
+    // Immediate update so the button reflects sign-in right away
+    _updateAuthUI();
+
     // Check legacy admin collection (bootstrap path)
     try {
       const adminDoc = await getDb().collection('admins').doc(user.email).get();
       _legacyAdmin = adminDoc.exists;
     } catch(e) { _legacyAdmin = false; }
 
+    _isAdmin = _legacyAdmin;
+    _updateAuthUI();
+    renderHome();  // immediate render with legacy-admin status
+
     await _upsertUserDoc(user);
-    _subscribeToUserDoc(user);
-    // Snapshot fires immediately, which calls _updateAuthUI + renderHome
+    _subscribeToUserDoc(user);  // snapshot re-renders when roles load
+
+    // Complete a pending session join triggered before sign-in
+    if (_pendingJoinSessionId) {
+      const sid = _pendingJoinSessionId;
+      _pendingJoinSessionId = null;
+      await register(sid);
+    }
   } else {
     _currentRoles = [];
     _isAdmin = false;
@@ -208,15 +228,18 @@ async function openSession(id) {
   footer.innerHTML  = '';
 
   try {
-    const [sessionDoc, attendeesSnap] = await Promise.all([
-      _sessionRef(id).get(),
-      _attendeesRef(id).orderBy('joinedAt', 'asc').get(),
-    ]);
+    const sessionDoc = await _sessionRef(id).get();
     if (!sessionDoc.exists) { goHome(); return; }
 
-    const session   = { id: sessionDoc.id, ...sessionDoc.data() };
-    const attendees = attendeesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const isAttending = _currentUser && attendees.some(a => a.id === _currentUser.uid);
+    const session = { id: sessionDoc.id, ...sessionDoc.data() };
+    let attendees   = [];
+    let isAttending = false;
+
+    if (_currentUser) {
+      const attendeesSnap = await _attendeesRef(id).orderBy('joinedAt', 'asc').get();
+      attendees   = attendeesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      isAttending = attendees.some(a => a.id === _currentUser.uid);
+    }
 
     document.getElementById('detail-subtitle').textContent =
       [_formatDate(session.date), session.time].filter(Boolean).join(' · ');
@@ -229,7 +252,8 @@ async function openSession(id) {
 }
 
 function _renderDetail(session, attendees, isAttending, content, footer) {
-  const spotsLeft      = _spotsLeft(session, attendees.length);
+  const knownCount     = _currentUser ? attendees.length : (session.attendeeCount || 0);
+  const spotsLeft      = _spotsLeft(session, knownCount);
   const isCancelled    = session.status === 'cancelled';
   const isFull         = spotsLeft === 0 && !isAttending;
   const deadlinePassed = session.registrationDeadline && session.registrationDeadline.toDate() < new Date();
@@ -246,7 +270,7 @@ function _renderDetail(session, attendees, isAttending, content, footer) {
         ${session.coach ? `<div class="detail-meta-row"><span class="detail-meta-label">Coach</span><span>${esc(session.coach)}</span></div>` : ''}
         ${levelLabel ? `<div class="detail-meta-row"><span class="detail-meta-label">Level</span><span>${esc(levelLabel)}</span></div>` : ''}
         <div class="detail-meta-row"><span class="detail-meta-label">Cost</span><span>${esc(_formatCost(session.cost))}</span></div>
-        <div class="detail-meta-row"><span class="detail-meta-label">Spots</span><span>${attendees.length} / ${session.maxPlayers}${isCancelled ? '' : ` · ${spotsLeft} left`}</span></div>
+        <div class="detail-meta-row"><span class="detail-meta-label">Spots</span><span>${knownCount} / ${session.maxPlayers}${isCancelled ? '' : ` · ${spotsLeft} left`}</span></div>
         ${deadlineStr ? `<div class="detail-meta-row"><span class="detail-meta-label">Deadline</span><span${deadlinePassed ? ' style="color:var(--red)"' : ''}>${esc(deadlineStr)}${deadlinePassed ? ' · closed' : ''}</span></div>` : ''}
         ${isCancelled ? `<div class="detail-meta-row"><span class="detail-badge cancelled">Cancelled</span></div>` : ''}
       </div>
@@ -254,22 +278,22 @@ function _renderDetail(session, attendees, isAttending, content, footer) {
     </div>
 
     <div class="detail-section">
-      <div class="detail-section-title">Attendees (${attendees.length})</div>
-      ${attendees.length ? `
-        <div class="attendee-list">
-          ${attendees.map((a, i) => `
-            <div class="attendee-row">
-              <span class="attendee-num">${i + 1}</span>
-              <span class="attendee-name">${esc(a.name)}</span>
-              ${_isAdmin ? `<span class="attendee-email">${esc(a.email || '')}</span>` : ''}
-              ${_isAdmin ? `<button class="icon-btn danger small" onclick="removeAttendee('${session.id}','${a.id}')" title="Remove">✕</button>` : ''}
-            </div>`).join('')}
-        </div>` : '<div class="empty-note">No one signed up yet.</div>'}
+      <div class="detail-section-title">Attendees (${knownCount})</div>
+      ${!_currentUser
+        ? '<div class="empty-note">Sign in to see who\'s coming.</div>'
+        : attendees.length ? `
+          <div class="attendee-list">
+            ${attendees.map((a, i) => `
+              <div class="attendee-row">
+                <span class="attendee-num">${i + 1}</span>
+                <span class="attendee-name">${esc(a.name)}</span>
+                ${_isAdmin ? `<span class="attendee-email">${esc(a.email || '')}</span>` : ''}
+                ${_isAdmin ? `<button class="icon-btn danger small" onclick="removeAttendee('${session.id}','${a.id}')" title="Remove">✕</button>` : ''}
+              </div>`).join('')}
+          </div>` : '<div class="empty-note">No one signed up yet.</div>'}
     </div>`;
 
-  if (!_currentUser) {
-    footer.innerHTML = `<button class="cta-btn" onclick="handleAuthClick()">Sign in to register</button>`;
-  } else if (isCancelled) {
+  if (isCancelled) {
     footer.innerHTML = `<button class="cta-btn" disabled>Session cancelled</button>`;
   } else if (isAttending) {
     footer.innerHTML = `<button class="cta-btn secondary-btn" onclick="cancelRegistration('${session.id}')">Cancel my registration</button>`;
@@ -283,7 +307,11 @@ function _renderDetail(session, attendees, isAttending, content, footer) {
 }
 
 async function register(sessionId) {
-  if (!_currentUser) return;
+  if (!_currentUser) {
+    _pendingJoinSessionId = sessionId;
+    await handleAuthClick();
+    return;
+  }
   const btn = document.querySelector('#detail-footer .cta-btn');
   if (btn) btn.disabled = true;
   try {
@@ -392,11 +420,13 @@ async function toggleRole(uid, role) {
       ? roles.filter(r => r !== role)
       : [...roles, role];
     if (!newRoles.includes('player')) newRoles.push('player');
-    await _userRef(uid).update({ roles: newRoles });
+    await _userRef(uid).set({ roles: newRoles }, { merge: true });
     renderUsers();
   } catch(e) {
     console.error('Toggle role failed:', e);
-    if (e.code === 'permission-denied') alert('Permission denied. Check Firestore rules.');
+    alert(e.code === 'permission-denied'
+      ? 'Permission denied. Add Firestore rules for the users/ collection (see README).'
+      : `Couldn't update role: ${e.message}`);
   }
 }
 
