@@ -1,4 +1,4 @@
-const CACHE = 'kqotc-v7';
+const CACHE = 'kqotc-v8';
 const ASSETS = ['./', './index.html', './logic.js', './app.js', './style.css', './manifest.json'];
 
 self.addEventListener('install', e => {

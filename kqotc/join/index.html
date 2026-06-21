@@ -111,6 +111,8 @@
     });
   </script>
   <script>
+    function esc(s) { const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+
     const params       = new URLSearchParams(location.search);
     const tournamentId = params.get('t');
     const card         = document.getElementById('main-card');
@@ -173,7 +175,7 @@
 
       function _showForm(tname, user, tourRef, playerRef) {
         card.innerHTML = `
-          <span class="card-label">${tname || 'Check-in'}</span>
+          <span class="card-label">${esc(tname) || 'Check-in'}</span>
           <input type="text" id="name-input" placeholder="Your name" maxlength="24"
             autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" />
           <div class="error-msg" id="error-msg">Please enter your name.</div>
@@ -207,8 +209,8 @@
         card.innerHTML = `
           <div class="state-card">
             <div class="state-icon">✓</div>
-            <div class="state-h">You're in, ${name.split(' ')[0]}!</div>
-            <div class="state-p">${msg}</div>
+            <div class="state-h">You're in, ${esc(name.split(' ')[0])}!</div>
+            <div class="state-p">${esc(msg)}</div>
           </div>`;
       }
 
@@ -217,7 +219,7 @@
           <div class="state-card">
             <div class="state-icon amber">🏐</div>
             <div class="state-h">Round ${round} is live!</div>
-            <div class="state-p">Get to the court, ${name.split(' ')[0]}.</div>
+            <div class="state-p">Get to the court, ${esc(name.split(' ')[0])}.</div>
           </div>`;
       }
 
@@ -256,7 +258,7 @@
           <div class="state-card">
             <div class="state-icon">✓</div>
             <div class="state-h">Score submitted!</div>
-            <div class="state-p">Waiting for next round, ${name.split(' ')[0]}.</div>
+            <div class="state-p">Waiting for next round, ${esc(name.split(' ')[0])}.</div>
           </div>`;
       }
 
@@ -265,7 +267,7 @@
           <div class="state-card">
             <div class="state-icon amber">♛</div>
             <div class="state-h">That's a wrap!</div>
-            <div class="state-p">Great game, ${name.split(' ')[0]}. Check the leaderboard.</div>
+            <div class="state-p">Great game, ${esc(name.split(' ')[0])}. Check the leaderboard.</div>
           </div>`;
       }
     }

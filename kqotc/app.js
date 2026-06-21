@@ -1,5 +1,5 @@
 // ─── Debug ─────────────────────────────────────────────────────────────────────
-const DEBUG = true;
+const DEBUG = false;
 
 // ─── State ─────────────────────────────────────────────────────────────────────
 let players     = [];   // { id, name, cumScore }
@@ -175,7 +175,7 @@ function _renderTourItem(t) {
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         ${badge}
-        ${_isAdmin ? `<button class="tour-delete-btn" onclick="event.stopPropagation();deleteTournament('${t.id}','${esc(t.name)}')" title="Delete event">✕</button>` : ''}
+        ${_isAdmin ? `<button class="tour-delete-btn" data-name="${esc(t.name)}" onclick="event.stopPropagation();deleteTournament('${t.id}',this.dataset.name)" title="Delete event">✕</button>` : ''}
         <span class="tour-arrow">›</span>
       </div>
     </div>`;
