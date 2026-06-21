@@ -1,7 +1,11 @@
 // ─── State ─────────────────────────────────────────────────────────────────────
-let _currentUser = null;
-let _isAdmin     = false;
-let _editingId   = null;   // session ID being edited, null when creating
+let _currentUser  = null;
+let _currentRoles = [];
+let _isAdmin      = false;
+let _isCoach      = false;
+let _legacyAdmin  = false;   // cached check against admins/{email} collection
+let _userDocUnsub = null;    // unsubscribe fn for own user doc listener
+let _editingId    = null;    // session ID being edited, null when creating
 
 // ─── Firebase ──────────────────────────────────────────────────────────────────
 function getDb()   { return firebase.firestore(); }
@@ -10,13 +14,43 @@ function getAuth() { return firebase.auth(); }
 function _sessionsRef()           { return getDb().collection('sessions'); }
 function _sessionRef(id)          { return _sessionsRef().doc(id); }
 function _attendeesRef(sessionId) { return _sessionRef(sessionId).collection('attendees'); }
+function _usersRef()              { return getDb().collection('users'); }
+function _userRef(uid)            { return _usersRef().doc(uid); }
 
-async function _checkAdmin(user) {
-  if (!user?.email) return false;
+// ─── User doc ──────────────────────────────────────────────────────────────────
+async function _upsertUserDoc(user) {
+  const ref = _userRef(user.uid);
   try {
-    const doc = await getDb().collection('admins').doc(user.email).get();
-    return doc.exists;
-  } catch(e) { return false; }
+    const doc = await ref.get();
+    if (doc.exists) {
+      await ref.update({
+        name:      user.displayName || doc.data().name || '',
+        email:     user.email || '',
+        photoURL:  user.photoURL || '',
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      await ref.set({
+        name:      user.displayName || '',
+        email:     user.email || '',
+        photoURL:  user.photoURL || '',
+        roles:     ['player'],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+  } catch(e) { console.error('Upsert user doc failed:', e); }
+}
+
+function _subscribeToUserDoc(user) {
+  if (_userDocUnsub) { _userDocUnsub(); _userDocUnsub = null; }
+  _userDocUnsub = _userRef(user.uid).onSnapshot(doc => {
+    _currentRoles = (doc.data()?.roles) || ['player'];
+    _isAdmin = _legacyAdmin || _currentRoles.includes('admin');
+    _isCoach = _currentRoles.includes('coach');
+    _updateAuthUI();
+    renderHome();
+  }, err => console.error('User doc listener error:', err));
 }
 
 // ─── Auth ──────────────────────────────────────────────────────────────────────
@@ -31,8 +65,9 @@ async function handleAuthClick() {
 }
 
 function _updateAuthUI() {
-  const btn    = document.getElementById('auth-btn');
-  const newBtn = document.getElementById('home-new-btn');
+  const btn      = document.getElementById('auth-btn');
+  const newBtn   = document.getElementById('home-new-btn');
+  const usersBtn = document.getElementById('home-users-btn');
   if (_currentUser) {
     const label = _currentUser.displayName?.split(' ')[0] || _currentUser.email;
     btn.textContent = `${esc(label)} · Sign out`;
@@ -41,15 +76,34 @@ function _updateAuthUI() {
     btn.textContent = 'Sign in';
     btn.classList.remove('auth-btn--signed-in');
   }
-  if (newBtn) newBtn.style.display = _isAdmin ? '' : 'none';
+  if (newBtn)   newBtn.style.display   = _isAdmin ? '' : 'none';
+  if (usersBtn) usersBtn.style.display = _isAdmin ? '' : 'none';
 }
 
 // ─── Boot ──────────────────────────────────────────────────────────────────────
 getAuth().onAuthStateChanged(async user => {
   _currentUser = user;
-  _isAdmin     = await _checkAdmin(user);
-  _updateAuthUI();
-  renderHome();
+
+  if (_userDocUnsub) { _userDocUnsub(); _userDocUnsub = null; }
+
+  if (user) {
+    // Check legacy admin collection (bootstrap path)
+    try {
+      const adminDoc = await getDb().collection('admins').doc(user.email).get();
+      _legacyAdmin = adminDoc.exists;
+    } catch(e) { _legacyAdmin = false; }
+
+    await _upsertUserDoc(user);
+    _subscribeToUserDoc(user);
+    // Snapshot fires immediately, which calls _updateAuthUI + renderHome
+  } else {
+    _currentRoles = [];
+    _isAdmin = false;
+    _isCoach = false;
+    _legacyAdmin = false;
+    _updateAuthUI();
+    renderHome();
+  }
 });
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -119,11 +173,11 @@ async function renderHome() {
 function _renderSessionCard(s) {
   const statusClass = s.status === 'cancelled' ? 'cancelled' : s.status === 'full' ? 'full' : 'open';
   const statusLabel = s.status === 'cancelled' ? 'Cancelled' : s.status === 'full' ? 'Full' : 'Open';
-  const dateStr  = _formatDate(s.date);
-  const timeStr  = s.time || '';
-  const costStr  = _formatCost(s.cost);
-  const countStr = s.attendeeCount != null ? `${s.attendeeCount}/${s.maxPlayers}` : `0/${s.maxPlayers}`;
-  const levelLabel = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced', competitive: 'Competitive' }[s.level] || '';
+  const dateStr     = _formatDate(s.date);
+  const timeStr     = s.time || '';
+  const costStr     = _formatCost(s.cost);
+  const countStr    = s.attendeeCount != null ? `${s.attendeeCount}/${s.maxPlayers}` : `0/${s.maxPlayers}`;
+  const levelLabel  = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced', competitive: 'Competitive' }[s.level] || '';
   return `
     <div class="session-card" onclick="openSession('${s.id}')">
       <div class="session-card-main">
@@ -179,12 +233,10 @@ function _renderDetail(session, attendees, isAttending, content, footer) {
   const isCancelled    = session.status === 'cancelled';
   const isFull         = spotsLeft === 0 && !isAttending;
   const deadlinePassed = session.registrationDeadline && session.registrationDeadline.toDate() < new Date();
-
-  const levelLabel = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced', competitive: 'Competitive' }[session.level] || '';
-  const deadlineStr = session.registrationDeadline
+  const levelLabel     = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced', competitive: 'Competitive' }[session.level] || '';
+  const deadlineStr    = session.registrationDeadline
     ? session.registrationDeadline.toDate().toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
     : '';
-  const deadlinePassed = session.registrationDeadline && session.registrationDeadline.toDate() < new Date();
 
   content.innerHTML = `
     <div class="detail-section">
@@ -279,6 +331,75 @@ async function removeAttendee(sessionId, uid) {
   } catch(e) { console.error('Remove attendee failed:', e); }
 }
 
+// ─── Users screen ──────────────────────────────────────────────────────────────
+function openUsersScreen() {
+  if (!_isAdmin) return;
+  showScreen('users');
+  renderUsers();
+}
+
+async function renderUsers() {
+  const container = document.getElementById('users-content');
+  container.innerHTML = '<div class="home-empty">Loading…</div>';
+  try {
+    const snap  = await _usersRef().orderBy('name', 'asc').get();
+    const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!users.length) {
+      container.innerHTML = '<div class="home-empty">No users yet.</div>';
+      return;
+    }
+    container.innerHTML = users.map(_renderUserRow).join('');
+  } catch(e) {
+    container.innerHTML = '<div class="home-empty">Couldn\'t load users. Check your connection.</div>';
+    console.error(e);
+  }
+}
+
+function _renderUserRow(u) {
+  const roles      = u.roles || ['player'];
+  const isMe       = _currentUser && u.id === _currentUser.uid;
+  const hasAdmin   = roles.includes('admin');
+  const hasCoach   = roles.includes('coach');
+  const initials   = (u.name || u.email || '?')[0].toUpperCase();
+
+  return `
+    <div class="user-row">
+      ${u.photoURL
+        ? `<img class="user-avatar" src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer" />`
+        : `<div class="user-avatar user-avatar--initials">${esc(initials)}</div>`}
+      <div class="user-info">
+        <div class="user-name">${esc(u.name || '—')}${isMe ? ' <span class="user-you">you</span>' : ''}</div>
+        <div class="user-email">${esc(u.email || '')}</div>
+      </div>
+      <div class="user-roles">
+        <button class="role-toggle${hasAdmin ? ' active admin' : ''}"
+          onclick="toggleRole('${u.id}', 'admin')"
+          ${isMe ? 'disabled' : ''}>Admin</button>
+        <button class="role-toggle${hasCoach ? ' active coach' : ''}"
+          onclick="toggleRole('${u.id}', 'coach')">Coach</button>
+        <span class="role-toggle active player" style="cursor:default">Player</span>
+      </div>
+    </div>`;
+}
+
+async function toggleRole(uid, role) {
+  if (!_isAdmin) return;
+  if (role === 'admin' && _currentUser && uid === _currentUser.uid) return;
+  try {
+    const doc      = await _userRef(uid).get();
+    const roles    = doc.data()?.roles || ['player'];
+    const newRoles = roles.includes(role)
+      ? roles.filter(r => r !== role)
+      : [...roles, role];
+    if (!newRoles.includes('player')) newRoles.push('player');
+    await _userRef(uid).update({ roles: newRoles });
+    renderUsers();
+  } catch(e) {
+    console.error('Toggle role failed:', e);
+    if (e.code === 'permission-denied') alert('Permission denied. Check Firestore rules.');
+  }
+}
+
 // ─── Create / Edit session ─────────────────────────────────────────────────────
 function openSessionForm(id = null) {
   if (!_isAdmin) return;
@@ -294,8 +415,8 @@ function openSessionForm(id = null) {
     submitEl.textContent = 'Save changes';
     _sessionRef(id).get().then(doc => {
       if (!doc.exists) return;
-      const s = doc.data();
-      const d = s.date?.toDate();
+      const s  = doc.data();
+      const d  = s.date?.toDate();
       const dl = s.registrationDeadline?.toDate();
       document.getElementById('form-date').value        = d  ? d.toISOString().slice(0, 10) : '';
       document.getElementById('form-time').value        = s.time || '';

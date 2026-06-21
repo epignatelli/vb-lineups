@@ -32,7 +32,10 @@
       <h1>Sessions</h1>
       <div class="subtitle">VB Session Manager</div>
     </div>
-    <button class="auth-btn" id="auth-btn" onclick="handleAuthClick()">Sign in</button>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <button class="nav-btn" id="home-users-btn" onclick="openUsersScreen()" style="display:none">Users</button>
+      <button class="auth-btn" id="auth-btn" onclick="handleAuthClick()">Sign in</button>
+    </div>
   </header>
 
   <div class="home-content" id="home-content">
@@ -139,6 +142,32 @@
   <div class="detail-content" id="detail-content"></div>
 
   <div class="footer" id="detail-footer"></div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     SCREEN — USERS
+══════════════════════════════════════════════════ -->
+<div class="screen" id="screen-users">
+
+  <header class="app-header">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#0f1117" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75M21 21v-2a4 4 0 0 0-3-3.87"/>
+      </svg>
+    </div>
+    <div>
+      <h1>Users</h1>
+      <div class="subtitle">Manage roles</div>
+    </div>
+    <button class="back-btn" onclick="goHome()">← Sessions</button>
+  </header>
+
+  <div class="users-content" id="users-content">
+    <div class="home-empty">Loading…</div>
+  </div>
 
 </div>
 
