@@ -489,6 +489,7 @@ body {
   font-family: ui-monospace, 'SF Mono', monospace;
   transition: border-color .15s;
 }
+.qr-url-input[readonly] { cursor: default; color: var(--muted); }
 .qr-url-input:focus { border-color: var(--amber); }
 .qr-status { font-size: 13px; color: var(--amber); font-weight: 600; }
 

@@ -83,7 +83,7 @@
 
   <div class="checkin-content">
 
-    <div class="section">
+    <div class="section" id="add-player-section">
       <div class="step-label">Check-in</div>
       <div class="add-row">
         <input type="text" id="player-input" placeholder="Player name" maxlength="24"
@@ -100,12 +100,14 @@
         </div>
         <div style="display:flex;align-items:center;gap:6px">
           <span class="court-hint" id="court-hint"></span>
-          <button class="danger-btn" onclick="resetScores()">Reset scores</button>
-          <button class="danger-btn" onclick="clearPlayers()">Clear all</button>
+          <span id="admin-roster-actions" style="display:none">
+            <button class="danger-btn" onclick="resetScores()">Reset scores</button>
+            <button class="danger-btn" onclick="clearPlayers()">Clear all</button>
+          </span>
         </div>
       </div>
       <div id="player-list" class="player-list"></div>
-      <div id="player-empty" class="empty-state">No players yet — add some above</div>
+      <div id="player-empty" class="empty-state">No players yet</div>
     </div>
 
   </div>
@@ -116,9 +118,12 @@
     <button class="debug-btn" onclick="debugFillPlayers()">Fill players</button>
   </div>
 
-  <div class="footer" style="gap:8px">
-    <button class="cta-btn secondary-btn" onclick="openQRCheckin()">QR check-in</button>
-    <button class="cta-btn" id="start-btn" onclick="startEvent()" disabled>Start event</button>
+  <div class="footer" style="flex-direction:column;gap:8px">
+    <div style="display:flex;gap:8px">
+      <button class="cta-btn secondary-btn" onclick="openJoinPage()">Join →</button>
+      <button class="cta-btn secondary-btn" id="qr-checkin-btn" onclick="openQRCheckin()" style="display:none">QR check-in</button>
+    </div>
+    <button class="cta-btn" id="start-btn" onclick="startEvent()" style="display:none" disabled>Start event</button>
   </div>
 
   <!-- QR check-in overlay -->
@@ -132,9 +137,7 @@
         <img id="qr-img" src="" alt="QR code" width="200" height="200" />
       </div>
       <div class="qr-session-label">Code: <strong id="qr-code-text"></strong></div>
-      <input class="qr-url-input" id="qr-join-url" type="text"
-        oninput="updateQRUrl(this.value)" autocomplete="off" autocorrect="off"
-        autocapitalize="none" spellcheck="false" />
+      <input class="qr-url-input" id="qr-join-url" type="text" readonly />
       <div class="qr-status" id="qr-status">Waiting for players…</div>
       <div class="qr-player-list" id="qr-player-list"></div>
       <button class="cta-btn" onclick="closeQRCheckin()">Done</button>

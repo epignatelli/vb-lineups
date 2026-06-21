@@ -251,6 +251,7 @@ function showScreen(id) {
 
 // ─── Check-in screen ───────────────────────────────────────────────────────────
 async function addPlayer() {
+  if (!_isAdmin) return;
   const input = document.getElementById('player-input');
   const name  = input.value.trim();
   if (!name) return;
@@ -273,6 +274,7 @@ document.getElementById('player-input').addEventListener('keydown', e => {
 });
 
 async function removePlayer(id) {
+  if (!_isAdmin) return;
   await _playersRef().doc(id).delete();
   await _tourRef().update({ playerCount: firebase.firestore.FieldValue.increment(-1) });
   players = players.filter(p => p.id !== id);
@@ -287,19 +289,27 @@ function renderCheckin() {
   const listEl   = document.getElementById('player-list');
   const emptyEl  = document.getElementById('player-empty');
   const nameEl   = document.getElementById('checkin-tournament-name');
+  const addSec   = document.getElementById('add-player-section');
+  const adminAct = document.getElementById('admin-roster-actions');
+  const qrBtn    = document.getElementById('qr-checkin-btn');
 
   if (nameEl) nameEl.textContent = _tournamentName;
   countEl.textContent = n || '';
+
+  if (addSec)   addSec.style.display   = _isAdmin ? '' : 'none';
+  if (adminAct) adminAct.style.display = _isAdmin ? '' : 'none';
+  if (qrBtn)    qrBtn.style.display    = _isAdmin ? '' : 'none';
+  if (startBtn) startBtn.style.display = _isAdmin ? '' : 'none';
 
   const nTop     = calcNumTopTeams(n);
   const topCount = nTop * 4;
   if (n >= 8) {
     hintEl.textContent = `${nTop} king court team${nTop > 1 ? 's' : ''} · ${Math.max(0, n - topCount)} on work-up`;
   } else {
-    hintEl.textContent = 'Need at least 8 players';
+    hintEl.textContent = _isAdmin ? 'Need at least 8 players' : 'Waiting for players…';
   }
 
-  startBtn.disabled = n < 8;
+  if (startBtn) startBtn.disabled = n < 8;
 
   if (!n) {
     listEl.innerHTML = '';
@@ -312,8 +322,13 @@ function renderCheckin() {
     <div class="player-row">
       <span class="player-num">${i + 1}</span>
       <span class="player-name">${esc(p.name)}</span>
-      <button class="remove-btn" onclick="removePlayer('${p.id}')">×</button>
+      ${_isAdmin ? `<button class="remove-btn" onclick="removePlayer('${p.id}')">×</button>` : ''}
     </div>`).join('');
+}
+
+function openJoinPage() {
+  if (!_tournamentId) return;
+  window.open('./join/?t=' + _tournamentId, '_blank');
 }
 
 // ─── Start event ───────────────────────────────────────────────────────────────
@@ -562,6 +577,7 @@ function renderLeaderboard() {
 }
 
 async function clearPlayers() {
+  if (!_isAdmin) return;
   if (!players.length) return;
   if (!confirm(`Remove all ${players.length} players? This cannot be undone.`)) return;
   const snap  = await _playersRef().get();
@@ -574,6 +590,7 @@ async function clearPlayers() {
 }
 
 async function resetScores() {
+  if (!_isAdmin) return;
   if (!players.some(p => p.cumScore > 0)) return;
   if (!confirm('Reset all cumulative scores to zero? This cannot be undone.')) return;
   const batch = getDb().batch();
