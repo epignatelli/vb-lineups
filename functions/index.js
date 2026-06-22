@@ -197,13 +197,14 @@ exports.stripeWebhook = functions
       const amount   = ((checkout.amount_total || parseInt(refundAmountPence, 10)) / 100).toFixed(2);
       const dateStr  = _formatDate(session.date);
       const venue    = session.venue || 'the session';
+      const calUrl   = _calendarUrl(session);
       await sendEmail(email,
         `Payment confirmed — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
         _emailHtml(`Hi ${name},`, [
           `Your payment of <strong>£${amount}</strong> has been confirmed.`,
           `You're registered for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''}.`,
           `See you on the court!`,
-        ])
+        ], calUrl)
       );
     }
 
@@ -333,13 +334,114 @@ exports.onAttendeeJoined = onDocumentCreated({
 
   const venue   = session.venue || 'the session';
   const dateStr = _formatDate(session.date);
+  const calUrl = _calendarUrl(session);
   await sendEmail(attendee.email,
     `You're in — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
     _emailHtml(`Hi ${attendee.name || 'there'},`, [
       `You're registered for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''}.`,
       `See you on the court!`,
-    ])
+    ], calUrl)
   );
+});
+
+// ── removeAttendeeAdmin ──────────────────────────────────────────────────────
+exports.removeAttendeeAdmin = functions
+  .region(REGION)
+  .runWith({ secrets: [GMAIL_APP_PASSWORD] })
+  .https.onRequest(async (req, res) => {
+    setCors(res);
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    if (req.method !== 'POST')    return res.status(405).end();
+
+    let decoded;
+    try { decoded = await verifyAuth(req); }
+    catch (e) { return res.status(401).json({ error: e.message }); }
+
+    const db = getFirestore();
+    const [callerDoc, adminDoc] = await Promise.all([
+      db.collection('users').doc(decoded.uid).get(),
+      db.collection('admins').doc(decoded.email || '').get(),
+    ]);
+    const isAdmin = (callerDoc.data()?.roles || []).includes('admin') || adminDoc.exists;
+    if (!isAdmin) return res.status(403).json({ error: 'Admin only.' });
+
+    const { sessionId, uid } = req.body;
+    if (!sessionId || !uid) return res.status(400).json({ error: 'Missing sessionId or uid.' });
+
+    const sessionRef  = db.collection('sessions').doc(sessionId);
+    const attendeeRef = sessionRef.collection('attendees').doc(uid);
+    const [sessionSnap, attendeeSnap] = await Promise.all([sessionRef.get(), attendeeRef.get()]);
+    if (!sessionSnap.exists)  return res.status(404).json({ error: 'Session not found.' });
+    if (!attendeeSnap.exists) return res.status(404).json({ error: 'Attendee not found.' });
+
+    const session  = sessionSnap.data();
+    const attendee = attendeeSnap.data();
+
+    await db.runTransaction(async t => {
+      t.delete(attendeeRef);
+      t.update(sessionRef, { attendeeCount: FieldValue.increment(-1) });
+    });
+
+    const venue   = session.venue || 'the session';
+    const dateStr = _formatDate(session.date);
+    await sendEmail(attendee.email,
+      `Registration removed — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+      _emailHtml(`Hi ${attendee.name || 'there'},`, [
+        `Your registration for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''} has been removed by an admin.`,
+        `If you have any questions, please contact the organiser.`,
+      ])
+    );
+
+    return res.json({ ok: true });
+  });
+
+// ── onSessionUpdated — notify attendees when venue / date / time / cost changes
+exports.onSessionUpdated = onDocumentUpdated({
+  document:  'sessions/{sessionId}',
+  region:    REGION_FIRESTORE,
+  secrets:   [GMAIL_APP_PASSWORD],
+}, async (event) => {
+  const before = event.data.before.data();
+  const after  = event.data.after.data();
+
+  if (after.status === 'cancelled') return; // handled by onSessionCancelled
+
+  const venueChanged = before.venue !== after.venue;
+  const dateChanged  = String(before.date?.toMillis?.() ?? '') !== String(after.date?.toMillis?.() ?? '');
+  const timeChanged  = before.time  !== after.time;
+  const costChanged  = before.cost  !== after.cost;
+
+  if (!venueChanged && !dateChanged && !timeChanged && !costChanged) return;
+
+  const db        = getFirestore();
+  const venue     = after.venue || 'the session';
+  const dateStr   = _formatDate(after.date);
+  const attendees = await db
+    .collection('sessions').doc(event.params.sessionId)
+    .collection('attendees').get();
+  if (!attendees.size) return;
+
+  const changes = [
+    venueChanged ? `Venue: <strong>${after.venue || '(removed)'}</strong>` : '',
+    dateChanged  ? `Date: <strong>${dateStr || '(updated)'}</strong>` : '',
+    timeChanged  ? `Time: <strong>${after.time || '(updated)'}</strong>` : '',
+    costChanged  ? `Cost: <strong>${after.cost ? `£${after.cost.toFixed(2).replace(/\.00$/, '')}` : 'Free'}</strong>` : '',
+  ].filter(Boolean);
+
+  const calUrl = _calendarUrl(after);
+
+  await Promise.all(attendees.docs.map(doc => {
+    const a = doc.data();
+    if (!a.email) return;
+    return sendEmail(a.email,
+      `Session updated — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+      _emailHtml(`Hi ${a.name || 'there'},`, [
+        `Details have changed for <strong>${venue}</strong>:`,
+        changes.join('<br>'),
+        `Please make a note of the changes.`,
+      ], calUrl)
+    );
+  }));
 });
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -355,11 +457,26 @@ function _formatDate(ts) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function _emailHtml(greeting, paragraphs) {
+function _calendarUrl(session) {
+  if (!session?.date) return null;
+  const d   = session.date.toDate ? session.date.toDate() : new Date(session.date);
+  const pad = n => String(n).padStart(2, '0');
+  const [h = 10, m = 0] = (session.time || '10:00').split(':').map(Number);
+  const start = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(h)}${pad(m)}00`;
+  const end   = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(h + 2)}${pad(m)}00`;
+  const title = encodeURIComponent(['Volleyball', session.venue].filter(Boolean).join(' — '));
+  const loc   = encodeURIComponent(session.venue || '');
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&location=${loc}`;
+}
+
+function _emailHtml(greeting, paragraphs, calendarUrl = null) {
   const body = paragraphs.map(p => `<p style="margin:0 0 12px">${p}</p>`).join('');
+  const cal  = calendarUrl
+    ? `<p style="margin:20px 0 0"><a href="${calendarUrl}" style="display:inline-block;padding:10px 18px;background:#f5a623;color:#0f1117;text-decoration:none;border-radius:8px;font-weight:700;font-size:13px">Add to Google Calendar →</a></p>`
+    : '';
   return `<!DOCTYPE html><html><body style="font-family:sans-serif;color:#111;max-width:480px;margin:0 auto;padding:24px">
 <p style="margin:0 0 12px">${greeting}</p>
-${body}
+${body}${cal}
 <p style="margin:24px 0 0;font-size:12px;color:#888">KQOTC Volleyball</p>
 </body></html>`;
 }

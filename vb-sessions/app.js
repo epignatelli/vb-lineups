@@ -9,6 +9,7 @@ let _editingId              = null;   // session ID being edited, null when crea
 let _pendingJoinSessionId   = null;   // session to join after sign-in completes
 let _pendingProfileNeeds    = {};     // { needsGender, needsPositions } for profile overlay
 let _editingAttendeeSession = null;   // sessionId when editing own attendee entry (positions)
+let _currentSession         = null;   // session data for the open detail panel
 
 // Handle return from Stripe Checkout before Firebase initialises.
 // Stripe appends ?checkout=success|cancelled&session=ID to the success/cancel URLs.
@@ -244,6 +245,49 @@ function _spotsLeft(session, attendeeCount) {
   return Math.max(0, (session.maxPlayers || 0) - attendeeCount);
 }
 
+// ─── Calendar helpers ──────────────────────────────────────────────────────────
+function _calendarDates(session) {
+  if (!session?.date) return null;
+  const d   = session.date.toDate ? session.date.toDate() : new Date(session.date);
+  const pad = n => String(n).padStart(2, '0');
+  const [h = 10, m = 0] = (session.time || '10:00').split(':').map(Number);
+  const y = d.getFullYear(), mo = d.getMonth() + 1, day = d.getDate();
+  return {
+    start: `${y}${pad(mo)}${pad(day)}T${pad(h)}${pad(m)}00`,
+    end:   `${y}${pad(mo)}${pad(day)}T${pad(h + 2)}${pad(m)}00`,
+    title: ['Volleyball', session.venue].filter(Boolean).join(' — '),
+  };
+}
+
+function _googleCalendarUrl(session) {
+  const c = _calendarDates(session);
+  if (!c) return null;
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE` +
+    `&text=${encodeURIComponent(c.title)}&dates=${c.start}/${c.end}` +
+    `&location=${encodeURIComponent(session.venue || '')}`;
+}
+
+function downloadIcs() {
+  const c = _calendarDates(_currentSession);
+  if (!c) return;
+  const lines = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//KQOTC//Sessions//EN',
+    'BEGIN:VEVENT',
+    `DTSTART;TZID=Europe/London:${c.start}`,
+    `DTEND;TZID=Europe/London:${c.end}`,
+    `SUMMARY:${c.title}`,
+    _currentSession.venue ? `LOCATION:${_currentSession.venue}` : '',
+    _currentSession.description ? `DESCRIPTION:${_currentSession.description.replace(/\n/g, '\\n')}` : '',
+    'END:VEVENT', 'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
+  const a = Object.assign(document.createElement('a'), {
+    href:     URL.createObjectURL(new Blob([lines], { type: 'text/calendar' })),
+    download: 'session.ics',
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 // ─── Home screen ───────────────────────────────────────────────────────────────
 async function renderHome() {
   const container = document.getElementById('home-content');
@@ -321,6 +365,7 @@ async function openSession(id) {
     if (!sessionDoc.exists) { goHome(); return; }
 
     const session = { id: sessionDoc.id, ...sessionDoc.data() };
+    _currentSession = session;
     let attendees   = [];
     let isAttending = false;
 
@@ -365,6 +410,13 @@ function _renderDetail(session, attendees, isAttending, content, footer) {
         ${isCancelled ? `<div class="detail-meta-row"><span class="detail-badge cancelled">Cancelled</span></div>` : ''}
       </div>
       ${session.description ? `<p class="detail-description">${esc(session.description)}</p>` : ''}
+      ${isAttending && !isCancelled && !isClosed && session.date ? (() => {
+        const gcal = _googleCalendarUrl(session);
+        return gcal ? `<div class="cal-row">
+          <a class="cal-link" href="${gcal}" target="_blank" rel="noopener">Add to Google Calendar</a>
+          <button class="cal-link" onclick="downloadIcs()">Download .ics</button>
+        </div>` : '';
+      })() : ''}
     </div>
 
     <div class="detail-section">
@@ -543,14 +595,14 @@ async function cancelRegistration(sessionId) {
 
 async function removeAttendee(sessionId, uid) {
   if (!_isAdmin) return;
-  if (!confirm('Remove this attendee?')) return;
+  if (!confirm('Remove this attendee? They will receive an email notification.')) return;
   try {
-    await _attendeesRef(sessionId).doc(uid).delete();
-    await _sessionRef(sessionId).update({
-      attendeeCount: firebase.firestore.FieldValue.increment(-1),
-    });
+    await callFn('removeAttendeeAdmin', { sessionId, uid });
     await openSession(sessionId);
-  } catch(e) { console.error('Remove attendee failed:', e); showToast('Couldn\'t remove attendee. Try again.', 'error'); }
+  } catch(e) {
+    console.error('Remove attendee failed:', e);
+    showToast(e.message || 'Couldn\'t remove attendee. Try again.', 'error');
+  }
 }
 
 // ─── Users screen ──────────────────────────────────────────────────────────────
