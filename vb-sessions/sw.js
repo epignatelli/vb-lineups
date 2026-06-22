@@ -1,4 +1,4 @@
-const CACHE = 'vb-sessions-v4';
+const CACHE = 'vb-sessions-v5';
 const ASSETS = ['./', './index.html', './app.js', './style.css', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -12,5 +12,6 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 self.addEventListener('fetch', e => {
+  if (!e.request.url.startsWith(self.location.origin)) return;
   e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });
