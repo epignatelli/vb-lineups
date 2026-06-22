@@ -61,7 +61,7 @@ async function sendEmail(to, subject, html) {
   const text = html.replace(/<[^>]+>/g, '').replace(/\n{3,}/g, '\n\n').trim();
   try {
     await getMailer().sendMail({
-      from: '"KQOTC" <edu.pignatelli@gmail.com>',
+      from: '"Roots Volleyball" <edu.pignatelli@gmail.com>',
       to, subject, html, text,
     });
     console.log('sendEmail ok:', subject, '->', to);
@@ -464,7 +464,7 @@ function _calendarUrl(session) {
   const [h = 10, m = 0] = (session.time || '10:00').split(':').map(Number);
   const start = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(h)}${pad(m)}00`;
   const end   = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(h + 2)}${pad(m)}00`;
-  const title = encodeURIComponent(['Volleyball', session.venue].filter(Boolean).join(' — '));
+  const title = encodeURIComponent(['Roots Volleyball', session.venue].filter(Boolean).join(' — '));
   const loc   = encodeURIComponent(session.venue || '');
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&location=${loc}`;
 }
@@ -477,6 +477,6 @@ function _emailHtml(greeting, paragraphs, calendarUrl = null) {
   return `<!DOCTYPE html><html><body style="font-family:sans-serif;color:#111;max-width:480px;margin:0 auto;padding:24px">
 <p style="margin:0 0 12px">${greeting}</p>
 ${body}${cal}
-<p style="margin:24px 0 0;font-size:12px;color:#888">KQOTC Volleyball</p>
+<p style="margin:24px 0 0;font-size:12px;color:#888">Roots Volleyball</p>
 </body></html>`;
 }

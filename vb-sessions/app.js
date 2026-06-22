@@ -255,7 +255,7 @@ function _calendarDates(session) {
   return {
     start: `${y}${pad(mo)}${pad(day)}T${pad(h)}${pad(m)}00`,
     end:   `${y}${pad(mo)}${pad(day)}T${pad(h + 2)}${pad(m)}00`,
-    title: ['Volleyball', session.venue].filter(Boolean).join(' — '),
+    title: ['Roots Volleyball', session.venue].filter(Boolean).join(' — '),
   };
 }
 
@@ -271,7 +271,7 @@ function downloadIcs() {
   const c = _calendarDates(_currentSession);
   if (!c) return;
   const lines = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//KQOTC//Sessions//EN',
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Roots Volleyball//Sessions//EN',
     'BEGIN:VEVENT',
     `DTSTART;TZID=Europe/London:${c.start}`,
     `DTEND;TZID=Europe/London:${c.end}`,
