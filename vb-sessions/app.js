@@ -241,6 +241,36 @@ function _formatPlayerPrice(adminPrice, absorbFee = false) {
   return `£${p.toFixed(2).replace(/\.00$/, '')}`;
 }
 
+// ── Coach payment helpers ─────────────────────────────────────────────────────
+function _coachPayStatus(session) {
+  const s = session.coachPaymentStatus;
+  if (s === 'paid')       return 'paid';
+  if (s === 'onboarding') return 'onboarding';
+  return 'pending'; // null / undefined / 'pending'
+}
+// Small inline widget next to the coach fee in the meta grid
+function _coachPayStatusWidget(session) {
+  if (session.status !== 'closed') return '';
+  const st = _coachPayStatus(session);
+  if (st === 'paid')       return `<span class="pay-status-ok">Paid ✓</span>`;
+  if (st === 'onboarding') return `<span class="pay-status-pending">Onboarding…</span> <button class="inline-pay-btn" onclick="approveCoachPayment('${session.id}')">Retry</button>`;
+  return `<button class="inline-pay-btn" onclick="approveCoachPayment('${session.id}')">Approve payment</button>`;
+}
+// Badge for the session list card
+function _coachPayBadge(s) {
+  const st = _coachPayStatus(s);
+  if (st === 'paid') return `<span class="session-badge coach-payment-paid">Coach paid ✓</span>`;
+  if (st === 'onboarding') return `<span class="session-badge coach-payment-pending">Coach onboarding…</span>`;
+  return `<button class="session-badge coach-payment-pending" onclick="event.stopPropagation();approveCoachPayment('${s.id}')">Approve coach payment</button>`;
+}
+// CTA button for the session detail and report footers
+function _coachPayCtaBtn(session) {
+  const st = _coachPayStatus(session);
+  if (st === 'paid')       return `<button class="cta-btn" disabled>Coach paid ✓</button>`;
+  if (st === 'onboarding') return `<button class="cta-btn warning-btn" onclick="approveCoachPayment('${session.id}')">Coach onboarding — resend link</button>`;
+  return `<button class="cta-btn warning-btn" onclick="approveCoachPayment('${session.id}')">Approve coach payment — £${Number(session.coachFee).toFixed(2)}</button>`;
+}
+
 function _spotsLeft(session, attendeeCount) {
   return Math.max(0, (session.maxPlayers || 0) - attendeeCount);
 }
@@ -340,6 +370,7 @@ function _renderSessionCard(s) {
       <div class="session-card-meta">
         <span class="session-badge ${statusClass}">${statusLabel}</span>
         ${levelLabel ? `<span class="session-badge level">${esc(levelLabel)}</span>` : ''}
+        ${_isAdmin && s.coach && s.coachFee > 0 && s.status === 'closed' ? _coachPayBadge(s) : ''}
         <span class="session-meta-item">👥 ${countStr}</span>
         <span class="session-meta-item">${esc(costStr)}</span>
       </div>
@@ -424,6 +455,7 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
         <div class="detail-meta-row"><span class="detail-meta-label">Spots</span><span>${knownCount} / ${session.maxPlayers}${isCancelled ? '' : ` · ${spotsLeft} left`}</span></div>
         ${deadlineStr ? `<div class="detail-meta-row"><span class="detail-meta-label">Deadline</span><span${deadlinePassed ? ' style="color:var(--red)"' : ''}>${esc(deadlineStr)}${deadlinePassed ? ' · closed' : ''}</span></div>` : ''}
         ${isCancelled ? `<div class="detail-meta-row"><span class="detail-badge cancelled">Cancelled</span></div>` : ''}
+        ${_isAdmin && session.coach && session.coachFee != null ? `<div class="detail-meta-row"><span class="detail-meta-label">Coach fee</span><span>£${Number(session.coachFee).toFixed(2)} ${_coachPayStatusWidget(session)}</span></div>` : ''}
         ${_isAdmin && session.createdAt ? `<div class="detail-meta-row"><span class="detail-meta-label">Created</span><span>${esc(_formatDate(session.createdAt))}</span></div>` : ''}
       </div>
       ${session.description ? `<p class="detail-description">${esc(session.description)}</p>` : ''}
@@ -489,9 +521,12 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
 
   const canStart = _isAdmin || (_currentUser && session.coachUid && session.coachUid === _currentUser.uid);
   if (isClosed) {
+    const coachPayBtn = _isAdmin && session.coach && session.coachFee > 0
+      ? _coachPayCtaBtn(session) : '';
     footer.innerHTML = `
       <button class="cta-btn" disabled>Session closed</button>
-      ${canStart && session.report ? `<button class="cta-btn secondary-btn" onclick="openSessionEndReport('${session.id}')">View report</button>` : ''}`;
+      ${canStart && session.report ? `<button class="cta-btn secondary-btn" onclick="openSessionEndReport('${session.id}')">View report</button>` : ''}
+      ${_isAdmin ? coachPayBtn : ''}`;
   } else if (isCancelled) {
     footer.innerHTML = `<button class="cta-btn" disabled>Session cancelled</button>`;
   } else if (canStart) {
@@ -658,6 +693,18 @@ async function leaveWaitingList(sessionId) {
     await openSession(sessionId);
   } catch(e) {
     showToast(e.message || 'Couldn\'t leave the waiting list. Try again.', 'error');
+  }
+}
+
+async function approveCoachPayment(sessionId) {
+  if (!_isAdmin) return;
+  if (!confirm('Approve coach payment? This will initiate a bank transfer.')) return;
+  try {
+    const data = await callFn('approveCoachPayment', { sessionId });
+    showToast(data.status === 'paid' ? 'Payment approved — transfer initiated.' : 'Onboarding email sent to coach.');
+    await openSession(sessionId);
+  } catch(e) {
+    showToast(e.message || 'Couldn\'t approve payment. Try again.', 'error');
   }
 }
 
@@ -887,6 +934,7 @@ function openSessionForm(id = null) {
       document.getElementById('form-description').value = s.description || '';
       document.getElementById('form-max').value         = s.maxPlayers || '';
       document.getElementById('form-cost').value        = s.cost != null ? s.cost : '';
+      document.getElementById('form-coach-fee').value   = s.coachFee != null ? s.coachFee : '50';
       document.getElementById('form-deadline').value        = dl ? dl.toISOString().slice(0, 16) : '';
       const statusSel = document.getElementById('form-status');
       // Ensure 'closed' option exists when editing a closed session
@@ -912,6 +960,7 @@ function openSessionForm(id = null) {
     document.getElementById('form-description').value = '';
     document.getElementById('form-max').value         = '12';
     document.getElementById('form-cost').value        = '0';
+    document.getElementById('form-coach-fee').value   = '50';
     document.getElementById('form-deadline').value        = '';
     const statusSel = document.getElementById('form-status');
     statusSel.querySelector('option[value="closed"]')?.remove();
@@ -957,6 +1006,7 @@ async function submitSessionForm() {
   const descVal     = document.getElementById('form-description').value.trim();
   const maxVal      = parseInt(document.getElementById('form-max').value);
   const costVal     = parseFloat(document.getElementById('form-cost').value) || 0;
+  const coachFeeVal = parseFloat(document.getElementById('form-coach-fee').value) ?? 50;
   const deadlineVal = document.getElementById('form-deadline').value;
   const status      = document.getElementById('form-status').value;
   const errorEl     = document.getElementById('form-error');
@@ -979,6 +1029,7 @@ async function submitSessionForm() {
     description:          descVal,
     maxPlayers:           maxVal,
     cost:                 costVal,
+    coachFee:             coachFeeVal,
     absorbFee:            document.getElementById('form-absorb-fee').checked,
     playerPrice:          document.getElementById('form-absorb-fee').checked ? costVal : _playerPrice(costVal),
     askPositions:         document.getElementById('form-ask-positions').checked,
@@ -1406,7 +1457,8 @@ function _renderReport(report, session) {
   const content = document.getElementById('end-content');
   const footer  = document.querySelector('#screen-session-end .footer');
   if (footer) footer.innerHTML =
-    `<button class="cta-btn secondary-btn" onclick="openSession('${session.id}')">← Back to session</button>`;
+    `<button class="cta-btn secondary-btn" onclick="openSession('${session.id}')">← Back to session</button>
+     ${_isAdmin && session.coach && session.coachFee > 0 ? _coachPayCtaBtn(session) : ''}`;
 
   const gSym = { man: '♂', woman: '♀', nonbinary: '⚧' };
   const gCls = { man: 'gender-m', woman: 'gender-w', nonbinary: 'gender-nb' };

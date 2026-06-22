@@ -175,6 +175,75 @@ exports.stripeWebhook = functions
       return res.status(400).send(`Webhook Error: ${e.message}`);
     }
 
+    if (event.type === 'account.updated') {
+      const account = event.data.object;
+      if (!account.charges_enabled) return res.json({ received: true });
+
+      const db = getFirestore();
+      // Find the coach user with this Stripe account
+      const usersSnap = await db.collection('users')
+        .where('stripeAccountId', '==', account.id).limit(1).get();
+      if (usersSnap.empty) return res.json({ received: true });
+
+      const coachDoc  = usersSnap.docs[0];
+      const coachUid  = coachDoc.id;
+      const coachData = coachDoc.data();
+
+      // Find all sessions in onboarding state for this coach
+      const sessionsSnap = await db.collection('sessions')
+        .where('coachUid', '==', coachUid)
+        .where('coachPaymentStatus', '==', 'onboarding')
+        .get();
+      if (sessionsSnap.empty) return res.json({ received: true });
+
+      const stripe = getStripe();
+      await Promise.all(sessionsSnap.docs.map(async sessionDoc => {
+        const session  = sessionDoc.data();
+        const coachFee = session.coachFee ?? 0;
+        if (coachFee <= 0) return;
+        try {
+          await stripe.transfers.create({
+            amount:      Math.round(coachFee * 100),
+            currency:    'gbp',
+            destination: account.id,
+            description: `Coach payment — ${session.venue || sessionDoc.id}`,
+          });
+          await sessionDoc.ref.update({
+            coachPaymentStatus: 'paid',
+            coachPaidAt: FieldValue.serverTimestamp(),
+          });
+          const coachEmail = coachData.email || '';
+          const coachName  = coachData.name  || session.coach || 'Coach';
+          if (coachEmail) {
+            const dateStr = _formatDate(session.date);
+            await sendEmail(coachEmail,
+              `Payment sent — ${session.venue || ''}${dateStr ? ` · ${dateStr}` : ''}`,
+              _emailHtml(`Hi ${coachName},`, [
+                `Your payment of <strong>£${coachFee.toFixed(2)}</strong> for <strong>${session.venue || 'the session'}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''} has been sent and will arrive in your bank account within 1–2 business days.`,
+              ])
+            );
+          }
+        } catch (e) {
+          console.error(`Transfer failed for session ${sessionDoc.id}:`, e.message);
+          // Notify all admins
+          const adminsSnap = await db.collection('admins').get();
+          const venue   = session.venue || 'the session';
+          const dateStr = _formatDate(session.date);
+          await Promise.all(adminsSnap.docs.map(doc =>
+            sendEmail(doc.id,
+              `Coach payment failed — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+              _emailHtml('Hi,', [
+                `The automatic coach payment of <strong>£${coachFee.toFixed(2)}</strong> for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''} could not be processed due to insufficient funds.`,
+                `Please top up the Roots Volleyball Stripe account and approve the payment manually from the app.`,
+              ])
+            )
+          ));
+        }
+      }));
+
+      return res.json({ received: true });
+    }
+
     if (event.type === 'checkout.session.completed') {
       const checkout        = event.data.object;
       const { sessionId, uid, refundAmountPence, positions: positionsMeta } = checkout.metadata;
@@ -469,6 +538,34 @@ exports.onSessionUpdated = onDocumentUpdated({
 
   if (after.status === 'cancelled') return; // handled by onSessionCancelled
 
+  const db = getFirestore();
+
+  // ── session just closed → flag coach payment pending and email admins ──
+  if (before.status !== 'closed' && after.status === 'closed') {
+    const coachFee = after.coachFee ?? 0;
+    const hasCoach = !!(after.coachUid || after.coach);
+    if (hasCoach && coachFee > 0) {
+      await db.collection('sessions').doc(event.params.sessionId)
+        .update({ coachPaymentStatus: 'pending' });
+
+      const adminsSnap = await db.collection('admins').get();
+      const venue   = after.venue  || 'the session';
+      const dateStr = _formatDate(after.date);
+      const subject = `Coach payment pending — ${venue}${dateStr ? ` · ${dateStr}` : ''}`;
+      const appUrl  = `https://epignatelli.github.io/apps/vb-sessions/`;
+      await Promise.all(adminsSnap.docs.map(doc =>
+        sendEmail(doc.id, subject,
+          _emailHtml('Hi,', [
+            `The session <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''} has closed.`,
+            `Coach: <strong>${after.coach || 'TBC'}</strong> · Fee: <strong>£${Number(coachFee).toFixed(2)}</strong>`,
+            `Open the app to approve the payment.`,
+          ], null, appUrl, 'Open app →')
+        )
+      ));
+    }
+    return;
+  }
+
   const venueChanged = before.venue !== after.venue;
   const dateChanged  = String(before.date?.toMillis?.() ?? '') !== String(after.date?.toMillis?.() ?? '');
   const timeChanged  = before.time  !== after.time;
@@ -476,7 +573,6 @@ exports.onSessionUpdated = onDocumentUpdated({
 
   if (!venueChanged && !dateChanged && !timeChanged && !costChanged) return;
 
-  const db        = getFirestore();
   const venue     = after.venue || 'the session';
   const dateStr   = _formatDate(after.date);
   const attendees = await db
@@ -654,6 +750,112 @@ exports.leaveWaitingList = functions
     return res.json({ ok: true });
   });
 
+// ── approveCoachPayment ──────────────────────────────────────────────────────
+exports.approveCoachPayment = functions
+  .region(REGION)
+  .runWith({ secrets: [STRIPE_SECRET_KEY, GMAIL_APP_PASSWORD] })
+  .https.onRequest(async (req, res) => {
+    setCors(res);
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    if (req.method !== 'POST')    return res.status(405).end();
+
+    let decoded;
+    try { decoded = await verifyAuth(req); }
+    catch (e) { return res.status(401).json({ error: e.message }); }
+
+    const db = getFirestore();
+    const adminDoc = await db.collection('admins').doc(decoded.email || '').get();
+    if (!adminDoc.exists) return res.status(403).json({ error: 'Admins only.' });
+
+    const { sessionId } = req.body;
+    if (!sessionId) return res.status(400).json({ error: 'Missing sessionId.' });
+
+    const sessionSnap = await db.collection('sessions').doc(sessionId).get();
+    if (!sessionSnap.exists) return res.status(404).json({ error: 'Session not found.' });
+
+    const session = sessionSnap.data();
+    if (session.coachPaymentStatus === 'paid') return res.json({ ok: true, status: 'paid' });
+
+    const coachFee = session.coachFee ?? 0;
+    if (!coachFee || coachFee <= 0) return res.status(400).json({ error: 'No coach fee set.' });
+    if (!session.coachUid) return res.status(400).json({ error: 'No coach assigned.' });
+
+    // Look up coach's Stripe account
+    const coachUserSnap = await db.collection('users').doc(session.coachUid).get();
+    const coachUser     = coachUserSnap.exists ? coachUserSnap.data() : {};
+    const coachEmail    = coachUser.email || '';
+    const coachName     = coachUser.name  || session.coach || 'Coach';
+
+    if (coachUser.stripeAccountId) {
+      // Coach has Stripe — transfer immediately
+      const stripe  = getStripe();
+      const dateStr = _formatDate(session.date);
+      const venue   = session.venue || 'the session';
+      try {
+        await stripe.transfers.create({
+          amount:      Math.round(coachFee * 100),
+          currency:    'gbp',
+          destination: coachUser.stripeAccountId,
+          description: `Coach payment — ${venue}`,
+        });
+      } catch (stripeErr) {
+        console.error('Transfer failed:', stripeErr.message);
+        // Notify the approving admin — don't expose Stripe errors to the coach
+        await sendEmail(decoded.email,
+          `Coach payment failed — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+          _emailHtml('Hi,', [
+            `The coach payment of <strong>£${coachFee.toFixed(2)}</strong> for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''} could not be processed due to insufficient funds.`,
+            `Please top up the Roots Volleyball Stripe account and try again from the app.`,
+          ])
+        );
+        return res.status(502).json({ error: 'Insufficient funds — the payment could not be processed. An email has been sent to you.' });
+      }
+      await db.collection('sessions').doc(sessionId)
+        .update({ coachPaymentStatus: 'paid', coachPaidAt: FieldValue.serverTimestamp() });
+      if (coachEmail) {
+        await sendEmail(coachEmail,
+          `Payment sent — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+          _emailHtml(`Hi ${coachName},`, [
+            `Your payment of <strong>£${coachFee.toFixed(2)}</strong> for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''} has been approved and will arrive in your bank account within 1–2 business days.`,
+          ])
+        );
+      }
+      return res.json({ ok: true, status: 'paid' });
+    } else {
+      // Coach has no Stripe — create account and send onboarding link
+      const stripe = getStripe();
+      const account = await stripe.accounts.create({
+        type:    'express',
+        country: 'GB',
+        email:   coachEmail || undefined,
+        capabilities: { transfers: { requested: true } },
+      });
+      await db.collection('users').doc(session.coachUid)
+        .update({ stripeAccountId: account.id });
+
+      const accountLink = await stripe.accountLinks.create({
+        account:     account.id,
+        refresh_url: `https://epignatelli.github.io/apps/vb-sessions/`,
+        return_url:  `https://epignatelli.github.io/apps/vb-sessions/`,
+        type:        'account_onboarding',
+      });
+      await db.collection('sessions').doc(sessionId)
+        .update({ coachPaymentStatus: 'onboarding' });
+
+      if (coachEmail) {
+        const dateStr = _formatDate(session.date);
+        await sendEmail(coachEmail,
+          `Action required: set up payments to receive your coaching fee`,
+          _emailHtml(`Hi ${coachName},`, [
+            `You have a pending coach payment of <strong>£${coachFee.toFixed(2)}</strong> for <strong>${session.venue || 'a session'}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''}.`,
+            `To receive this payment, please set up your bank account with our payment provider. It only takes a few minutes.`,
+          ], null, accountLink.url, 'Set up payments →')
+        );
+      }
+      return res.json({ ok: true, status: 'onboarding' });
+    }
+  });
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function _playerPrice(adminPrice) {
   if (!adminPrice || adminPrice <= 0) return 0;
@@ -679,14 +881,17 @@ function _calendarUrl(session) {
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&location=${loc}`;
 }
 
-function _emailHtml(greeting, paragraphs, calendarUrl = null) {
+function _emailHtml(greeting, paragraphs, calendarUrl = null, ctaUrl = null, ctaLabel = null) {
   const body = paragraphs.map(p => `<p style="margin:0 0 12px">${p}</p>`).join('');
   const cal  = calendarUrl
     ? `<p style="margin:20px 0 0"><a href="${calendarUrl}" style="display:inline-block;padding:10px 18px;background:#f5a623;color:#0f1117;text-decoration:none;border-radius:8px;font-weight:700;font-size:13px">Add to Google Calendar →</a></p>`
     : '';
+  const cta  = ctaUrl
+    ? `<p style="margin:20px 0 0"><a href="${ctaUrl}" style="display:inline-block;padding:10px 18px;background:#4f46e5;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:13px">${ctaLabel || 'Open →'}</a></p>`
+    : '';
   return `<!DOCTYPE html><html><body style="font-family:sans-serif;color:#111;max-width:480px;margin:0 auto;padding:24px">
 <p style="margin:0 0 12px">${greeting}</p>
-${body}${cal}
+${body}${cal}${cta}
 <p style="margin:24px 0 0;font-size:12px;color:#888">Roots Volleyball</p>
 </body></html>`;
 }
