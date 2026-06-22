@@ -229,6 +229,15 @@ body {
 .detail-meta-label { color: var(--muted); min-width: 60px; flex-shrink: 0; }
 .detail-description { font-size: 14px; color: var(--muted); line-height: 1.6; }
 
+.cal-row  { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.cal-link {
+  font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 6px;
+  background: transparent; border: 1px solid var(--muted); color: var(--muted);
+  text-decoration: none; cursor: pointer; white-space: nowrap;
+  transition: border-color .15s, color .15s;
+}
+.cal-link:hover { border-color: var(--fg); color: var(--fg); }
+
 .detail-badge {
   font-family: var(--sport); font-size: 11px; font-weight: 700;
   letter-spacing: .08em; text-transform: uppercase;
