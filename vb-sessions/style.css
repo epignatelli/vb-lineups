@@ -125,6 +125,19 @@ body {
   transition: opacity .15s;
 }
 .cta-btn:disabled { opacity: .35; cursor: default; }
+.cta-btn.loading { opacity: .55; cursor: default; position: relative; }
+.cta-btn.loading::after {
+  content: '';
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  vertical-align: middle;
+  margin-left: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .cta-btn:not(:disabled):active { opacity: .8; }
 .cta-btn.secondary-btn {
   background: var(--surface2);

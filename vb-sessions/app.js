@@ -453,7 +453,7 @@ async function register(sessionId) {
 
 async function _doRegister(sessionId, extra = {}) {
   const btn = document.querySelector('#detail-footer .cta-btn');
-  if (btn) btn.disabled = true;
+  if (btn) { btn.disabled = true; btn.classList.add('loading'); }
   try {
     const [userDoc, sessionDoc] = await Promise.all([
       _userRef(_currentUser.uid).get(),
@@ -473,6 +473,7 @@ async function _doRegister(sessionId, extra = {}) {
         sessionId,
         successUrl: `${base}?checkout=success&session=${sessionId}`,
         cancelUrl:  `${base}?checkout=cancelled&session=${sessionId}`,
+        positions:  extra.positions || [],
       });
       window.location.href = data.url;
       return;
@@ -494,7 +495,7 @@ async function _doRegister(sessionId, extra = {}) {
   } catch(e) {
     console.error('Register failed:', e);
     showToast(e.message || 'Couldn\'t join session. Try again.', 'error');
-    if (btn) btn.disabled = false;
+    if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
   }
 }
 
@@ -513,7 +514,7 @@ async function cancelRegistration(sessionId) {
   if (!confirm(msg)) return;
 
   const btn = document.querySelector('#detail-footer .cta-btn');
-  if (btn) btn.disabled = true;
+  if (btn) { btn.disabled = true; btn.classList.add('loading'); }
 
   if (isPaid) {
     try {
@@ -523,7 +524,7 @@ async function cancelRegistration(sessionId) {
     } catch(e) {
       console.error('Cancel + refund failed:', e);
       showToast(e.message || 'Couldn\'t cancel. Try again.', 'error');
-      if (btn) btn.disabled = false;
+      if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
     }
   } else {
     try {
@@ -535,7 +536,7 @@ async function cancelRegistration(sessionId) {
     } catch(e) {
       console.error('Cancel registration failed:', e);
       showToast('Couldn\'t cancel registration. Try again.', 'error');
-      if (btn) btn.disabled = false;
+      if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
     }
   }
 }
@@ -697,7 +698,8 @@ async function submitProfileForm() {
   }
 
   try {
-    if (needsGender) await _userRef(_currentUser.uid).update({ gender });
+    if (needsGender)    await _userRef(_currentUser.uid).update({ gender });
+  if (needsPositions) await _userRef(_currentUser.uid).update({ positions });
 
     const sid = _pendingJoinSessionId;
     _pendingJoinSessionId = null;

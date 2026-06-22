@@ -1,5 +1,13 @@
 {
   "projects": {
     "default": "roots-kqotc"
+  },
+  "targets": {},
+  "etags": {
+    "roots-kqotc": {
+      "extensionInstances": {
+        "firestore-send-email": "6c671786b3245e523f2a5626f95d582ae71f3bf0d7445f8c2e9bea7688d6a2e9"
+      }
+    }
   }
 }

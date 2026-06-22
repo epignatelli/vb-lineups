@@ -1,7 +1,9 @@
 'use strict';
 
-// Gen 1 functions — avoids Cloud Run IAM org-policy issues with allUsers.
+// HTTP functions use Gen 1 to avoid Cloud Run IAM org-policy (allUsers).
+// Firestore triggers use Gen 2 (Eventarc) — required for eur3 multi-region DB.
 const functions = require('firebase-functions/v1');
+const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const { initializeApp }            = require('firebase-admin/app');
 const { getAuth }                  = require('firebase-admin/auth');
@@ -11,7 +13,9 @@ initializeApp();
 
 const STRIPE_SECRET_KEY     = defineSecret('STRIPE_SECRET_KEY');
 const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET');
-const REGION = 'europe-west2';
+const GMAIL_APP_PASSWORD    = defineSecret('GMAIL_APP_PASSWORD');
+const REGION          = 'europe-west2'; // HTTP functions
+const REGION_FIRESTORE = 'europe-west1'; // must match Firestore eur3 multi-region
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin':  '*',
@@ -39,6 +43,33 @@ function getStripe() {
   return _stripe;
 }
 
+let _transporter;
+function getMailer() {
+  if (!_transporter) {
+    _transporter = require('nodemailer').createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: { user: 'edu.pignatelli@gmail.com', pass: GMAIL_APP_PASSWORD.value() },
+    });
+  }
+  return _transporter;
+}
+
+async function sendEmail(to, subject, html) {
+  if (!to) return;
+  const text = html.replace(/<[^>]+>/g, '').replace(/\n{3,}/g, '\n\n').trim();
+  try {
+    await getMailer().sendMail({
+      from: '"KQOTC" <edu.pignatelli@gmail.com>',
+      to, subject, html, text,
+    });
+    console.log('sendEmail ok:', subject, '->', to);
+  } catch (e) {
+    console.error('sendEmail failed:', e.message);
+  }
+}
+
 // ── createCheckoutSession ───────────────────────────────────────────────────
 exports.createCheckoutSession = functions
   .region(REGION)
@@ -52,7 +83,7 @@ exports.createCheckoutSession = functions
     try { decoded = await verifyAuth(req); }
     catch (e) { return res.status(401).json({ error: e.message }); }
 
-    const { sessionId, successUrl, cancelUrl } = req.body;
+    const { sessionId, successUrl, cancelUrl, positions } = req.body;
     if (!sessionId || !successUrl || !cancelUrl)
       return res.status(400).json({ error: 'Missing required fields.' });
 
@@ -74,29 +105,35 @@ exports.createCheckoutSession = functions
     if (playerPrice <= 0)
       return res.status(400).json({ error: 'This session is free.' });
 
-    const checkout = await getStripe().checkout.sessions.create({
-      mode: 'payment',
-      automatic_payment_methods: { enabled: true },
-      billing_address_collection: 'required',
-      line_items: [{
-        price_data: {
-          currency: 'gbp',
-          product_data: {
-            name: [session.venue, _formatDate(session.date)].filter(Boolean).join(' — ') || 'Volleyball session',
+    let checkout;
+    try {
+      checkout = await getStripe().checkout.sessions.create({
+        mode: 'payment',
+        billing_address_collection: 'required',
+        line_items: [{
+          price_data: {
+            currency: 'gbp',
+            product_data: {
+              name: [session.venue, _formatDate(session.date)].filter(Boolean).join(' — ') || 'Volleyball session',
+            },
+            unit_amount: Math.round(playerPrice * 100),
           },
-          unit_amount: Math.round(playerPrice * 100),
+          quantity: 1,
+        }],
+        customer_email: decoded.email || undefined,
+        metadata: {
+          sessionId,
+          uid,
+          refundAmountPence: String(Math.round((session.cost || 0) * 100)),
+          positions: JSON.stringify(positions || []),
         },
-        quantity: 1,
-      }],
-      customer_email: decoded.email || undefined,
-      metadata: {
-        sessionId,
-        uid,
-        refundAmountPence: String(Math.round((session.cost || 0) * 100)),
-      },
-      success_url: successUrl,
-      cancel_url:  cancelUrl,
-    });
+        success_url: successUrl,
+        cancel_url:  cancelUrl,
+      });
+    } catch (e) {
+      console.error('Stripe checkout error:', e.message);
+      return res.status(500).json({ error: `Payment setup failed: ${e.message}` });
+    }
 
     return res.json({ url: checkout.url });
   });
@@ -104,7 +141,7 @@ exports.createCheckoutSession = functions
 // ── stripeWebhook ───────────────────────────────────────────────────────────
 exports.stripeWebhook = functions
   .region(REGION)
-  .runWith({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET] })
+  .runWith({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, GMAIL_APP_PASSWORD] })
   .https.onRequest(async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
@@ -119,7 +156,8 @@ exports.stripeWebhook = functions
 
     if (event.type === 'checkout.session.completed') {
       const checkout        = event.data.object;
-      const { sessionId, uid, refundAmountPence } = checkout.metadata;
+      const { sessionId, uid, refundAmountPence, positions: positionsMeta } = checkout.metadata;
+      const sessionPositions = positionsMeta ? JSON.parse(positionsMeta) : [];
       const paymentIntentId = checkout.payment_intent;
 
       const db          = getFirestore();
@@ -127,6 +165,9 @@ exports.stripeWebhook = functions
       const attendeeRef = sessionRef.collection('attendees').doc(uid);
       const userDoc     = await db.collection('users').doc(uid).get();
       const u           = userDoc.exists ? userDoc.data() : {};
+
+      const sessionSnap = await sessionRef.get();
+      const session     = sessionSnap.exists ? sessionSnap.data() : {};
 
       await db.runTransaction(async t => {
         const existing = await t.get(attendeeRef);
@@ -138,7 +179,7 @@ exports.stripeWebhook = functions
           email:             u.email || checkout.customer_details?.email || '',
           address:           checkout.customer_details?.address || null,
           gender:            u.gender    || null,
-          positions:         u.positions || [],
+          positions:         sessionPositions.length ? sessionPositions : (u.positions || []),
           present:           false,
           paid:              true,
           feeWaived:         false,
@@ -150,6 +191,20 @@ exports.stripeWebhook = functions
 
         if (isNew) t.update(sessionRef, { attendeeCount: FieldValue.increment(1) });
       });
+
+      const email    = u.email || checkout.customer_details?.email;
+      const name     = u.name  || checkout.customer_details?.name || 'there';
+      const amount   = ((checkout.amount_total || parseInt(refundAmountPence, 10)) / 100).toFixed(2);
+      const dateStr  = _formatDate(session.date);
+      const venue    = session.venue || 'the session';
+      await sendEmail(email,
+        `Payment confirmed — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+        _emailHtml(`Hi ${name},`, [
+          `Your payment of <strong>£${amount}</strong> has been confirmed.`,
+          `You're registered for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''}.`,
+          `See you on the court!`,
+        ])
+      );
     }
 
     res.json({ received: true });
@@ -158,7 +213,7 @@ exports.stripeWebhook = functions
 // ── cancelAttendeeAndRefund ─────────────────────────────────────────────────
 exports.cancelAttendeeAndRefund = functions
   .region(REGION)
-  .runWith({ secrets: [STRIPE_SECRET_KEY] })
+  .runWith({ secrets: [STRIPE_SECRET_KEY, GMAIL_APP_PASSWORD] })
   .https.onRequest(async (req, res) => {
     setCors(res);
     if (req.method === 'OPTIONS') return res.status(204).end();
@@ -191,6 +246,7 @@ exports.cancelAttendeeAndRefund = functions
         return res.status(403).json({ error: 'Cancellations are not allowed within 24 hours of the session.' });
     }
 
+    let refunded = false;
     if (attendee.paid && attendee.paymentIntentId) {
       const refundPence = attendee.refundAmountPence || 0;
       if (refundPence > 0) {
@@ -198,6 +254,7 @@ exports.cancelAttendeeAndRefund = functions
           payment_intent: attendee.paymentIntentId,
           amount:         refundPence,
         });
+        refunded = true;
       }
     }
 
@@ -208,8 +265,82 @@ exports.cancelAttendeeAndRefund = functions
       t.update(sessionRef, { attendeeCount: FieldValue.increment(-1) });
     });
 
-    return res.json({ refunded: !!(attendee.paid && attendee.paymentIntentId) });
+    const email   = decoded.email || attendee.email;
+    const name    = attendee.name || 'there';
+    const venue   = session.venue || 'the session';
+    const dateStr = _formatDate(session.date);
+    const refundNote = refunded
+      ? `A refund of <strong>£${(attendee.refundAmountPence / 100).toFixed(2)}</strong> has been issued and should appear within 5–10 business days.`
+      : '';
+    await sendEmail(email,
+      `Registration cancelled — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+      _emailHtml(`Hi ${name},`, [
+        `Your registration for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''} has been cancelled.`,
+        refundNote,
+      ].filter(Boolean))
+    );
+
+    return res.json({ refunded });
   });
+
+// ── onSessionCancelled — notify all attendees when admin cancels a session ──
+exports.onSessionCancelled = onDocumentUpdated({
+  document:  'sessions/{sessionId}',
+  region:    REGION_FIRESTORE,
+  secrets:   [GMAIL_APP_PASSWORD],
+}, async (event) => {
+  const before = event.data.before.data();
+  const after  = event.data.after.data();
+  if (before.status === after.status || after.status !== 'cancelled') return;
+
+  const db        = getFirestore();
+  const venue     = after.venue || 'the session';
+  const dateStr   = _formatDate(after.date);
+  const attendees = await db
+    .collection('sessions').doc(event.params.sessionId)
+    .collection('attendees').get();
+
+  await Promise.all(attendees.docs.map(doc => {
+    const a = doc.data();
+    if (!a.email) return;
+    return sendEmail(a.email,
+      `Session cancelled — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+      _emailHtml(`Hi ${a.name || 'there'},`, [
+        `Unfortunately <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''} has been cancelled.`,
+        a.paid && a.refundAmountPence > 0
+          ? `A refund of <strong>£${(a.refundAmountPence / 100).toFixed(2)}</strong> will be processed automatically.`
+          : '',
+        `Apologies for the inconvenience.`,
+      ].filter(Boolean))
+    );
+  }));
+});
+
+// ── onAttendeeJoined — registration confirmation for free sessions ───────────
+exports.onAttendeeJoined = onDocumentCreated({
+  document:  'sessions/{sessionId}/attendees/{uid}',
+  region:    REGION_FIRESTORE,
+  secrets:   [GMAIL_APP_PASSWORD],
+}, async (event) => {
+  const attendee = event.data.data();
+  if (attendee.paid) return; // paid sessions get confirmation from stripeWebhook
+  if (!attendee.email) return;
+
+  const db         = getFirestore();
+  const sessionDoc = await db.collection('sessions').doc(event.params.sessionId).get();
+  if (!sessionDoc.exists) return;
+  const session = sessionDoc.data();
+
+  const venue   = session.venue || 'the session';
+  const dateStr = _formatDate(session.date);
+  await sendEmail(attendee.email,
+    `You're in — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+    _emailHtml(`Hi ${attendee.name || 'there'},`, [
+      `You're registered for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''}.`,
+      `See you on the court!`,
+    ])
+  );
+});
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function _playerPrice(adminPrice) {
@@ -222,4 +353,13 @@ function _formatDate(ts) {
   if (!ts) return '';
   const d = ts.toDate ? ts.toDate() : new Date(ts);
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function _emailHtml(greeting, paragraphs) {
+  const body = paragraphs.map(p => `<p style="margin:0 0 12px">${p}</p>`).join('');
+  return `<!DOCTYPE html><html><body style="font-family:sans-serif;color:#111;max-width:480px;margin:0 auto;padding:24px">
+<p style="margin:0 0 12px">${greeting}</p>
+${body}
+<p style="margin:24px 0 0;font-size:12px;color:#888">KQOTC Volleyball</p>
+</body></html>`;
 }

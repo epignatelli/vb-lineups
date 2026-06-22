@@ -20,3 +20,6 @@ Gemfile.lock
 # Firebase Functions
 functions/node_modules/
 functions/.env*
+
+# Extension secrets (contain SMTP credentials)
+extensions/*.secret.env
