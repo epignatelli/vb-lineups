@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f1117" />
+  <title>Roots | Policy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../shared.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --border: rgba(255,255,255,0.07);
+      --text: #f0f2f8; --muted: #7a80a0; --amber: #f5a623;
+      --sport: 'Barlow Condensed', system-ui, sans-serif;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; -webkit-font-smoothing: antialiased; min-height: 100dvh; display: flex; flex-direction: column; }
+    .app-topbar { background: var(--bg); border-bottom: 1px solid var(--border); }
+    main { flex: 1; max-width: 680px; margin: 0 auto; padding: 32px 24px 48px; width: 100%; }
+    h1 { font-family: var(--sport); font-size: 28px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--text); margin-bottom: 28px; }
+    h2 { font-family: var(--sport); font-size: 15px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--amber); margin: 28px 0 8px; }
+    p { font-size: 15px; line-height: 1.65; color: var(--muted); }
+    .updated { font-size: 12px; color: var(--muted); opacity: .5; margin-top: 36px; }
+  </style>
+</head>
+<body>
+
+<div class="app-topbar">
+  <div class="topbar-row">
+    <div class="topbar-left">
+      <a class="nav-home" href="../">Roots</a>
+      <button class="nav-back" onclick="history.back()">←</button>
+      <span class="nav-screen-title">Policy</span>
+    </div>
+  </div>
+</div>
+
+<main>
+  <h1>Terms &amp; Policy</h1>
+
+  <h2>Cancellation Policy</h2>
+  <p>You may cancel your registration at any time through the app. If you cancel more than 24 hours before the session start time, you will receive a full refund of the session cost (excluding any booking/processing fee). Cancellations within 24 hours of the session are non-refundable.</p>
+
+  <h2>Waiting List</h2>
+  <p>When a session is full you may join the waiting list. If a spot opens up you will receive an email notification. Spots are allocated on a first-come, first-served basis. Being on the waiting list does not guarantee a place.</p>
+
+  <h2>Refund Policy</h2>
+  <p>Refunds are issued to the original payment method and typically take 5–10 business days to appear. Booking and processing fees (added at checkout) are non-refundable. If a session is cancelled by the organiser, a full refund including any fees will be issued automatically.</p>
+
+  <h2>Session Cancellation by Organiser</h2>
+  <p>Roots Volleyball reserves the right to cancel any session. In the event of cancellation, all registered attendees and those on the waiting list will be notified by email, and paid attendees will receive a full refund.</p>
+
+  <h2>Data &amp; Privacy (GDPR)</h2>
+  <p>Your personal data (name, email, gender, positions) is stored securely in Google Firebase and used solely to manage your session registrations and send you session-related communications. We do not share your data with third parties beyond what is necessary to process payments (Stripe). You may request deletion of your data at any time by contacting <a href="mailto:edu.pignatelli@gmail.com" style="color:var(--amber)">edu.pignatelli@gmail.com</a>.</p>
+
+  <p class="updated">Last updated: June 2026</p>
+</main>
+
+<footer class="roots-footer">
+  <a class="roots-footer-link" href="../">Roots</a>
+  <span class="roots-footer-dot">·</span>
+  <span class="roots-footer-link dim">About</span>
+  <span class="roots-footer-dot">·</span>
+  <a class="roots-footer-link" href="../policy/">Policy</a>
+</footer>
+
+</body>
+</html>

@@ -311,7 +311,7 @@ function showScreen(id) {
         <span class="roots-footer-dot">·</span>
         <span class="roots-footer-link dim">About</span>
         <span class="roots-footer-dot">·</span>
-        <span class="roots-footer-link dim">Policy</span>
+        <button class="roots-footer-link" onclick="openPolicy()">Policy</button>
       </footer>`);
   }
 }
