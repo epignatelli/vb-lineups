@@ -35,6 +35,7 @@
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
       <button class="nav-btn" id="home-finances-btn" onclick="openFinancesScreen()" style="display:none">Finances</button>
       <button class="nav-btn" id="home-users-btn" onclick="openUsersScreen()" style="display:none">Users</button>
+      <button class="nav-btn" id="home-profile-btn" onclick="openEditProfile()" style="display:none">Profile</button>
       <button class="auth-btn" id="auth-btn" onclick="handleAuthClick()">Sign in</button>
     </div>
   </header>
@@ -305,6 +306,45 @@
     </div>
     <div class="form-error" id="profile-form-error"></div>
     <button class="cta-btn" onclick="submitProfileForm()">Continue →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     OVERLAY — EDIT PROFILE
+══════════════════════════════════════════════════ -->
+<div class="overlay" id="edit-profile-overlay">
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Edit profile</span>
+      <button class="panel-close" onclick="closeEditProfile()">✕</button>
+    </div>
+    <div class="form-fields">
+      <div class="field">
+        <label class="field-label">Name</label>
+        <input class="field-input" type="text" id="edit-profile-name" placeholder="Your name" maxlength="80"
+          autocomplete="name" autocorrect="off" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label class="field-label">Gender</label>
+        <select class="field-input field-select" id="edit-profile-gender">
+          <option value="">Prefer not to say</option>
+          <option value="man">Man</option>
+          <option value="woman">Woman</option>
+          <option value="nonbinary">Non-binary</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label">Positions (select all that apply)</label>
+        <div class="pos-toggles" id="edit-profile-positions">
+          <label class="pos-toggle setter"><input type="checkbox" value="setter" />S · Setter</label>
+          <label class="pos-toggle hitter"><input type="checkbox" value="hitter" />H · Hitter</label>
+          <label class="pos-toggle middle"><input type="checkbox" value="middle" />M · Middle</label>
+          <label class="pos-toggle libero"><input type="checkbox" value="libero" />L · Libero</label>
+        </div>
+      </div>
+    </div>
+    <div class="form-error" id="edit-profile-error"></div>
+    <button class="cta-btn" id="edit-profile-save-btn" onclick="saveProfile()">Save →</button>
   </div>
 </div>
 

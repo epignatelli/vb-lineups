@@ -119,6 +119,7 @@ function _updateAuthUI() {
   const newBtn       = document.getElementById('home-new-btn');
   const usersBtn     = document.getElementById('home-users-btn');
   const financesBtn  = document.getElementById('home-finances-btn');
+  const profileBtn   = document.getElementById('home-profile-btn');
   if (_currentUser) {
     const label = _currentUser.displayName?.split(' ')[0] || _currentUser.email;
     btn.textContent = `${esc(label)} · Sign out`;
@@ -127,9 +128,10 @@ function _updateAuthUI() {
     btn.textContent = 'Sign in';
     btn.classList.remove('auth-btn--signed-in');
   }
-  if (newBtn)      newBtn.style.display      = _isAdmin ? '' : 'none';
-  if (usersBtn)    usersBtn.style.display    = _isAdmin ? '' : 'none';
-  if (financesBtn) financesBtn.style.display = _isAdmin ? '' : 'none';
+  if (newBtn)      newBtn.style.display      = _isAdmin     ? '' : 'none';
+  if (usersBtn)    usersBtn.style.display    = _isAdmin     ? '' : 'none';
+  if (financesBtn) financesBtn.style.display = _isAdmin     ? '' : 'none';
+  if (profileBtn)  profileBtn.style.display  = _currentUser ? '' : 'none';
 }
 
 // ─── Boot ──────────────────────────────────────────────────────────────────────
@@ -1612,6 +1614,62 @@ async function openSessionEndReport(sessionId) {
   } catch(e) {
     console.error(e);
     showToast('Couldn\'t load report.', 'error');
+  }
+}
+
+// ─── Edit profile overlay ──────────────────────────────────────────────────────
+async function openEditProfile() {
+  if (!_currentUser) return;
+  const errorEl = document.getElementById('edit-profile-error');
+  errorEl.textContent = '';
+
+  try {
+    const doc  = await _userRef(_currentUser.uid).get();
+    const data = doc.data() || {};
+    document.getElementById('edit-profile-name').value    = data.name || _currentUser.displayName || '';
+    document.getElementById('edit-profile-gender').value  = data.gender || '';
+    const posSet = new Set(data.positions || []);
+    document.querySelectorAll('#edit-profile-positions input').forEach(cb => {
+      cb.checked = posSet.has(cb.value);
+    });
+  } catch(e) {
+    console.error('Load profile failed:', e);
+  }
+
+  document.getElementById('edit-profile-overlay').classList.add('open');
+}
+
+function closeEditProfile() {
+  document.getElementById('edit-profile-overlay').classList.remove('open');
+}
+
+async function saveProfile() {
+  const errorEl = document.getElementById('edit-profile-error');
+  const name    = document.getElementById('edit-profile-name').value.trim();
+  const gender  = document.getElementById('edit-profile-gender').value;
+  const positions = Array.from(
+    document.querySelectorAll('#edit-profile-positions input:checked')
+  ).map(el => el.value);
+
+  if (!name) { errorEl.textContent = 'Name cannot be empty.'; return; }
+
+  errorEl.textContent = '';
+  const btn = document.getElementById('edit-profile-save-btn');
+  btn.disabled = true;
+
+  try {
+    await _userRef(_currentUser.uid).update({
+      name,
+      gender:    gender || null,
+      positions,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    closeEditProfile();
+    showToast('Profile updated.');
+  } catch(e) {
+    console.error('Save profile failed:', e);
+    errorEl.textContent = 'Couldn\'t save profile. Try again.';
+    btn.disabled = false;
   }
 }
 
