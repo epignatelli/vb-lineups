@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0f1117" />
-  <title>Roots | Policy</title>
+  <title>Roots | Terms &amp; Policy</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../shared.css" />
@@ -18,9 +18,15 @@
     body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; -webkit-font-smoothing: antialiased; min-height: 100dvh; display: flex; flex-direction: column; }
     .app-topbar { background: var(--bg); border-bottom: 1px solid var(--border); }
     main { flex: 1; max-width: 680px; margin: 0 auto; padding: 32px 24px 48px; width: 100%; }
-    h1 { font-family: var(--sport); font-size: 28px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--text); margin-bottom: 28px; }
-    h2 { font-family: var(--sport); font-size: 15px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--amber); margin: 28px 0 8px; }
+    h1 { font-family: var(--sport); font-size: 28px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--text); margin-bottom: 8px; }
+    .subtitle { font-size: 13px; color: var(--muted); margin-bottom: 36px; }
+    h2 { font-family: var(--sport); font-size: 15px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--amber); margin: 32px 0 8px; }
     p { font-size: 15px; line-height: 1.65; color: var(--muted); }
+    p + p { margin-top: 10px; }
+    ul { margin: 8px 0 0 20px; }
+    ul li { font-size: 15px; line-height: 1.65; color: var(--muted); margin-bottom: 4px; }
+    a { color: var(--amber); }
+    .section-divider { border: none; border-top: 1px solid var(--border); margin: 40px 0 0; }
     .updated { font-size: 12px; color: var(--muted); opacity: .5; margin-top: 36px; }
   </style>
 </head>
@@ -31,28 +37,79 @@
     <div class="topbar-left">
       <a class="nav-home" href="../">Roots</a>
       <button class="nav-back" onclick="history.back()">←</button>
-      <span class="nav-screen-title">Policy</span>
+      <span class="nav-screen-title">Terms &amp; Policy</span>
     </div>
   </div>
 </div>
 
 <main>
   <h1>Terms &amp; Policy</h1>
+  <p class="subtitle">Governing your use of Roots and its session booking platform. By creating an account or booking a session you agree to these terms.</p>
 
-  <h2>Cancellation Policy</h2>
+  <!-- ── TERMS AND CONDITIONS ── -->
+
+  <h2>1. About Roots</h2>
+  <p>Roots ("we", "us", "our") is a volleyball community platform operated by Eduardo Pignatelli. The platform allows session holders to create and manage volleyball sessions and allows players to discover, register for, and pay for those sessions.</p>
+
+  <h2>2. Acceptance of Terms</h2>
+  <p>By accessing or using the Roots platform (the "Service"), you agree to be bound by these Terms and Conditions and our policies below. If you do not agree, you must not use the Service.</p>
+
+  <h2>3. Your Account</h2>
+  <p>You must sign in with a Google account to book sessions or create events. You are responsible for maintaining the security of your account and for all activity that occurs under it. You must provide accurate information and keep it up to date.</p>
+
+  <h2>4. Session Holders — Insurance Requirement</h2>
+  <p>Any person who creates and hosts a session through Roots ("session holder") must hold valid public liability insurance covering the activity for the duration of the session. By publishing a session, the session holder confirms that appropriate insurance is in place. Roots does not provide insurance and accepts no liability for any claim arising from a session holder's failure to maintain adequate cover.</p>
+
+  <h2>5. Participant Responsibilities &amp; Physical Risk</h2>
+  <p>Volleyball is a physical activity that carries an inherent risk of injury. By registering for a session you acknowledge and accept that risk. You confirm that:</p>
+  <ul>
+    <li>You are physically fit and have no medical condition that prevents you from participating safely.</li>
+    <li>You will follow all safety instructions given by the session holder.</li>
+    <li>You take part entirely at your own risk.</li>
+  </ul>
+  <p>Roots is not responsible for any injury, loss, or damage sustained during a session.</p>
+
+  <h2>6. Booking and Payments</h2>
+  <p>Session fees are set by the session holder and displayed before booking. Payments are processed securely by Stripe. By completing a booking you authorise the charge to your chosen payment method. All prices are inclusive of VAT where applicable.</p>
+
+  <h2>7. Cancellation &amp; Refunds</h2>
   <p>You may cancel your registration at any time through the app. If you cancel more than 24 hours before the session start time, you will receive a full refund of the session cost (excluding any booking/processing fee). Cancellations within 24 hours of the session are non-refundable.</p>
+  <p>Refunds are issued to the original payment method and typically take 5–10 business days to appear. Booking and processing fees are non-refundable.</p>
 
-  <h2>Waiting List</h2>
-  <p>When a session is full you may join the waiting list. If a spot opens up you will receive an email notification. Spots are allocated on a first-come, first-served basis. Being on the waiting list does not guarantee a place.</p>
+  <h2>8. Waiting List</h2>
+  <p>When a session is full you may join the waiting list. If a spot becomes available you will receive an email notification. Spots are allocated on a first-come, first-served basis. Being on the waiting list does not guarantee a place.</p>
 
-  <h2>Refund Policy</h2>
-  <p>Refunds are issued to the original payment method and typically take 5–10 business days to appear. Booking and processing fees (added at checkout) are non-refundable. If a session is cancelled by the organiser, a full refund including any fees will be issued automatically.</p>
+  <h2>9. Session Cancellation by Organiser</h2>
+  <p>Roots and session holders reserve the right to cancel any session. In the event of cancellation, all registered attendees and those on the waiting list will be notified by email, and paid attendees will receive a full refund including any fees.</p>
 
-  <h2>Session Cancellation by Organiser</h2>
-  <p>Roots Volleyball reserves the right to cancel any session. In the event of cancellation, all registered attendees and those on the waiting list will be notified by email, and paid attendees will receive a full refund.</p>
+  <h2>10. Prohibited Conduct</h2>
+  <p>You must not use the Service to:</p>
+  <ul>
+    <li>Post false, misleading, or fraudulent session listings.</li>
+    <li>Harass, abuse, or harm other users.</li>
+    <li>Circumvent any payment or access controls.</li>
+    <li>Use automated tools to scrape or misuse the platform.</li>
+  </ul>
+  <p>We reserve the right to suspend or terminate any account that violates these terms.</p>
 
-  <h2>Data &amp; Privacy (GDPR)</h2>
-  <p>Your personal data (name, email, gender, positions) is stored securely in Google Firebase and used solely to manage your session registrations and send you session-related communications. We do not share your data with third parties beyond what is necessary to process payments (Stripe). You may request deletion of your data at any time by contacting <a href="mailto:edu.pignatelli@gmail.com" style="color:var(--amber)">edu.pignatelli@gmail.com</a>.</p>
+  <h2>11. Limitation of Liability</h2>
+  <p>To the fullest extent permitted by law, Roots shall not be liable for any indirect, incidental, special, or consequential loss arising from your use of the Service, including but not limited to personal injury, loss of data, or financial loss. Our total liability to you in respect of any one claim shall not exceed the amount you paid for the session giving rise to that claim.</p>
+  <p>Nothing in these terms limits or excludes liability for death or personal injury caused by our negligence, fraud, or any other liability that cannot be excluded under English law.</p>
+
+  <h2>12. Intellectual Property</h2>
+  <p>All content on the Roots platform — including design, text, and software — is owned by or licensed to Roots. You may not reproduce, distribute, or create derivative works without our prior written consent.</p>
+
+  <h2>13. Data &amp; Privacy (GDPR)</h2>
+  <p>Your personal data (name, email, gender, playing positions) is stored securely in Google Firebase and used solely to manage your session registrations and send you session-related communications. We do not share your data with third parties beyond what is necessary to process payments (Stripe). You have the right to access, correct, or request deletion of your data at any time by contacting <a href="mailto:edu.pignatelli@gmail.com">edu.pignatelli@gmail.com</a>.</p>
+
+  <h2>14. Changes to These Terms</h2>
+  <p>We may update these terms from time to time. We will notify you of material changes by email or via the app. Continued use of the Service after changes take effect constitutes your acceptance of the revised terms.</p>
+
+  <h2>15. Governing Law</h2>
+  <p>These terms are governed by the laws of England and Wales. Any dispute arising from them shall be subject to the exclusive jurisdiction of the courts of England and Wales.</p>
+
+  <h2>16. Contact</h2>
+  <p>For any questions about these terms, please contact us at <a href="mailto:edu.pignatelli@gmail.com">edu.pignatelli@gmail.com</a>.</p>
 
   <p class="updated">Last updated: June 2026</p>
 </main>
