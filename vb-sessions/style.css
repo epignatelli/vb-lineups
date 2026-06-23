@@ -526,6 +526,30 @@ body {
 .pos-toggle:has(input[value="libero"]:checked) { background: var(--green-bg);          border-color: rgba(34,201,122,.35);  color: var(--green);  }
 .form-error  { font-size: 13px; color: var(--red); min-height: 16px; }
 
+/* ─── Finances screen ────────────────────────────────────────────────────────── */
+.finances-content { flex: 1; overflow: auto; padding: 16px 20px; }
+
+.finances-table-wrap { overflow-x: auto; }
+
+.finances-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px;
+}
+.finances-table th, .finances-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.finances-table th {
+  font-family: var(--sport); font-size: 10px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+.fin-num { text-align: right; font-variant-numeric: tabular-nums; }
+.fin-pos { color: var(--green); }
+.fin-neg { color: var(--red); }
+.fin-total td { font-weight: 600; border-top: 2px solid var(--border2); border-bottom: none; }
+
 /* ─── Users screen ───────────────────────────────────────────────────────────── */
 .users-content { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 2px; }
 

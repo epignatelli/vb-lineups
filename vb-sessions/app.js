@@ -115,9 +115,10 @@ async function handleAuthClick() {
 }
 
 function _updateAuthUI() {
-  const btn      = document.getElementById('auth-btn');
-  const newBtn   = document.getElementById('home-new-btn');
-  const usersBtn = document.getElementById('home-users-btn');
+  const btn          = document.getElementById('auth-btn');
+  const newBtn       = document.getElementById('home-new-btn');
+  const usersBtn     = document.getElementById('home-users-btn');
+  const financesBtn  = document.getElementById('home-finances-btn');
   if (_currentUser) {
     const label = _currentUser.displayName?.split(' ')[0] || _currentUser.email;
     btn.textContent = `${esc(label)} · Sign out`;
@@ -126,8 +127,9 @@ function _updateAuthUI() {
     btn.textContent = 'Sign in';
     btn.classList.remove('auth-btn--signed-in');
   }
-  if (newBtn)   newBtn.style.display   = _isAdmin ? '' : 'none';
-  if (usersBtn) usersBtn.style.display = _isAdmin ? '' : 'none';
+  if (newBtn)      newBtn.style.display      = _isAdmin ? '' : 'none';
+  if (usersBtn)    usersBtn.style.display    = _isAdmin ? '' : 'none';
+  if (financesBtn) financesBtn.style.display = _isAdmin ? '' : 'none';
 }
 
 // ─── Boot ──────────────────────────────────────────────────────────────────────
@@ -194,7 +196,8 @@ function _setHash(hash) {
 async function _routeFromHash() {
   const hash = location.hash.replace(/^#\/?/, '');
   if (!hash || hash === 'home') { renderHome(); return; }
-  if (hash === 'users')         { if (_isAdmin) openUsersScreen(); else renderHome(); return; }
+  if (hash === 'users')         { if (_isAdmin) openUsersScreen();    else renderHome(); return; }
+  if (hash === 'finances')      { if (_isAdmin) openFinancesScreen(); else renderHome(); return; }
   const slash = hash.indexOf('/');
   const section = slash > -1 ? hash.slice(0, slash) : hash;
   const id      = slash > -1 ? hash.slice(slash + 1) : '';
@@ -1605,6 +1608,80 @@ async function openSessionEndReport(sessionId) {
   } catch(e) {
     console.error(e);
     showToast('Couldn\'t load report.', 'error');
+  }
+}
+
+// ─── Finances screen ────────────────────────────────────────────────────────────
+function computeSessionFinancials(session) {
+  const attendeeCount = session.attendeeCount || 0;
+  const playerPrice   = session.absorbFee ? (session.cost || 0) : _playerPrice(session.cost || 0);
+  const revenue       = playerPrice * attendeeCount;
+  const coachFee      = (session.coachFee || 0);
+  const net           = revenue - coachFee;
+  return { revenue, coachFee, net, attendeeCount, playerPrice };
+}
+
+function openFinancesScreen() {
+  if (!_isAdmin) return;
+  _setHash('finances');
+  showScreen('finances');
+  renderFinances();
+}
+
+async function renderFinances() {
+  const container = document.getElementById('finances-content');
+  container.innerHTML = '<div class="home-empty">Loading…</div>';
+  try {
+    const snap     = await _sessionsRef().orderBy('date', 'desc').get();
+    const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!sessions.length) {
+      container.innerHTML = '<div class="home-empty">No sessions yet.</div>';
+      return;
+    }
+
+    let totalRevenue = 0, totalCoach = 0, totalNet = 0;
+    const rows = sessions.map(s => {
+      const { revenue, coachFee, net, attendeeCount, playerPrice } = computeSessionFinancials(s);
+      totalRevenue += revenue;
+      totalCoach   += coachFee;
+      totalNet     += net;
+      const fmt = n => `£${n.toFixed(2)}`;
+      return `<tr>
+        <td>${esc(_formatDate(s.date))}</td>
+        <td>${esc(s.venue || '—')}</td>
+        <td class="fin-num">${attendeeCount}</td>
+        <td class="fin-num">${playerPrice > 0 ? fmt(playerPrice) : 'Free'}</td>
+        <td class="fin-num">${fmt(revenue)}</td>
+        <td class="fin-num">${coachFee > 0 ? fmt(coachFee) : '—'}</td>
+        <td class="fin-num ${net < 0 ? 'fin-neg' : 'fin-pos'}">${fmt(net)}</td>
+      </tr>`;
+    }).join('');
+
+    const fmt = n => `£${n.toFixed(2)}`;
+    container.innerHTML = `
+      <div class="finances-table-wrap">
+        <table class="finances-table">
+          <thead>
+            <tr>
+              <th>Date</th><th>Venue</th><th class="fin-num">Players</th>
+              <th class="fin-num">Price</th><th class="fin-num">Revenue</th>
+              <th class="fin-num">Coach fee</th><th class="fin-num">Net</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+          <tfoot>
+            <tr class="fin-total">
+              <td colspan="4">Total (${sessions.length} sessions)</td>
+              <td class="fin-num">${fmt(totalRevenue)}</td>
+              <td class="fin-num">${fmt(totalCoach)}</td>
+              <td class="fin-num ${totalNet < 0 ? 'fin-neg' : 'fin-pos'}">${fmt(totalNet)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>`;
+  } catch(e) {
+    container.innerHTML = '<div class="home-empty">Couldn\'t load finances.</div>';
+    console.error(e);
   }
 }
 
