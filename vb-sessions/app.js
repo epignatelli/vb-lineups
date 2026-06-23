@@ -705,8 +705,7 @@ async function openSession(id) {
 
     _renderDetail(session, attendees, isAttending, waitingList, myWaitingListPos, content, footer, seriesReg);
   } catch(e) {
-    const isTimeout = e.message === 'timeout';
-    content.innerHTML = `<div class="home-empty">${isTimeout ? 'Loading took too long.' : 'Couldn\'t load session.'} <button class="link-btn" onclick="openSession('${id}')">Retry</button></div>`;
+    content.innerHTML = `<div class="home-empty">Taking longer than usual… <button class="link-btn" onclick="location.reload()">Tap here to reload</button></div>`;
     console.error(e);
   }
 }
