@@ -542,13 +542,18 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
     : 'Cancel my registration';
 
   const canStart = _isAdmin || (_currentUser && session.coachUid && session.coachUid === _currentUser.uid);
+  const msgBtn = _isAdmin && !isCancelled
+    ? `<button class="cta-btn secondary-btn" onclick="openMessageForm('${session.id}')">✉ Message attendees</button>`
+    : '';
+
   if (isClosed) {
     const coachPayBtn = _isAdmin && session.coach && session.coachFee > 0
       ? _coachPayCtaBtn(session) : '';
     footer.innerHTML = `
       <button class="cta-btn" disabled>Session closed</button>
       ${canStart && session.report ? `<button class="cta-btn secondary-btn" onclick="openSessionEndReport('${session.id}')">View report</button>` : ''}
-      ${_isAdmin ? coachPayBtn : ''}`;
+      ${_isAdmin ? coachPayBtn : ''}
+      ${msgBtn}`;
   } else if (isCancelled) {
     footer.innerHTML = `<button class="cta-btn" disabled>Session cancelled</button>`;
   } else if (canStart) {
@@ -557,22 +562,23 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
       : '';
     footer.innerHTML = `
       <button class="cta-btn" onclick="openSessionRun('${session.id}')">▶ Start session</button>
-      ${isAttending ? `<button class="cta-btn secondary-btn" onclick="cancelRegistration('${session.id}')">${cancelLabel}</button>` : joinBtn}`;
+      ${isAttending ? `<button class="cta-btn secondary-btn" onclick="cancelRegistration('${session.id}')">${cancelLabel}</button>` : joinBtn}
+      ${msgBtn}`;
   } else if (isAttending) {
-    footer.innerHTML = `<button class="cta-btn secondary-btn" onclick="cancelRegistration('${session.id}')">${cancelLabel}</button>`;
+    footer.innerHTML = `<button class="cta-btn secondary-btn" onclick="cancelRegistration('${session.id}')">${cancelLabel}</button>${msgBtn}`;
   } else if (myWaitingListPos !== 0 && !isFull && !deadlinePassed) {
-    footer.innerHTML = `<button class="cta-btn" onclick="register('${session.id}')">Claim your spot →</button>`;
+    footer.innerHTML = `<button class="cta-btn" onclick="register('${session.id}')">Claim your spot →</button>${msgBtn}`;
   } else if (myWaitingListPos !== 0) {
     const posLabel = myWaitingListPos > 0 ? `You're #${myWaitingListPos} on the waiting list` : `You're on the waiting list`;
     footer.innerHTML = `
       <span class="waiting-pos">${posLabel}</span>
-      <button class="cta-btn secondary-btn" onclick="leaveWaitingList('${session.id}')">Leave list</button>`;
+      <button class="cta-btn secondary-btn" onclick="leaveWaitingList('${session.id}')">Leave list</button>${msgBtn}`;
   } else if (isFull && !deadlinePassed) {
-    footer.innerHTML = `<button class="cta-btn" onclick="joinWaitingList('${session.id}')">Join waiting list →</button>`;
+    footer.innerHTML = `<button class="cta-btn" onclick="joinWaitingList('${session.id}')">Join waiting list →</button>${msgBtn}`;
   } else if (deadlinePassed) {
-    footer.innerHTML = `<button class="cta-btn" disabled>Registration closed</button>`;
+    footer.innerHTML = `<button class="cta-btn" disabled>Registration closed</button>${msgBtn}`;
   } else {
-    footer.innerHTML = `<button class="cta-btn" onclick="register('${session.id}')">Join session →</button>`;
+    footer.innerHTML = `<button class="cta-btn" onclick="register('${session.id}')">Join session →</button>${msgBtn}`;
   }
 }
 
@@ -1614,6 +1620,51 @@ async function openSessionEndReport(sessionId) {
   } catch(e) {
     console.error(e);
     showToast('Couldn\'t load report.', 'error');
+  }
+}
+
+// ─── Message attendees overlay ─────────────────────────────────────────────────
+let _messagingSessionId = null;
+
+function openMessageForm(sessionId) {
+  if (!_isAdmin) return;
+  _messagingSessionId = sessionId;
+  document.getElementById('message-subject').value = '';
+  document.getElementById('message-body').value    = '';
+  document.getElementById('message-error').textContent = '';
+  const btn = document.getElementById('message-send-btn');
+  btn.disabled = false;
+  document.getElementById('message-overlay').classList.add('open');
+}
+
+function closeMessageForm() {
+  document.getElementById('message-overlay').classList.remove('open');
+  _messagingSessionId = null;
+}
+
+async function sendMessage() {
+  if (!_isAdmin || !_messagingSessionId) return;
+  const errorEl = document.getElementById('message-error');
+  const subject = document.getElementById('message-subject').value.trim();
+  const body    = document.getElementById('message-body').value.trim();
+
+  if (!subject) { errorEl.textContent = 'Please enter a subject.'; return; }
+  if (!body)    { errorEl.textContent = 'Please enter a message.'; return; }
+
+  errorEl.textContent = '';
+  const btn = document.getElementById('message-send-btn');
+  btn.disabled = true;
+
+  try {
+    const data = await callFn('messageSessionAttendees', {
+      sessionId: _messagingSessionId, subject, body,
+    });
+    closeMessageForm();
+    showToast(`Message sent to ${data.sent} attendee${data.sent !== 1 ? 's' : ''}.`);
+  } catch(e) {
+    console.error('Send message failed:', e);
+    errorEl.textContent = e.message || 'Couldn\'t send message. Try again.';
+    btn.disabled = false;
   }
 }
 

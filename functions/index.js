@@ -870,6 +870,58 @@ exports.approveCoachPayment = functions
     }
   });
 
+// ── messageSessionAttendees ──────────────────────────────────────────────────
+exports.messageSessionAttendees = functions
+  .region(REGION)
+  .runWith({ secrets: [GMAIL_APP_PASSWORD] })
+  .https.onRequest(async (req, res) => {
+    setCors(res);
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    if (req.method !== 'POST')    return res.status(405).end();
+
+    let decoded;
+    try { decoded = await verifyAuth(req); }
+    catch (e) { return res.status(401).json({ error: e.message }); }
+
+    const db = getFirestore();
+    const [callerDoc, adminDoc] = await Promise.all([
+      db.collection('users').doc(decoded.uid).get(),
+      db.collection('admins').doc(decoded.email || '').get(),
+    ]);
+    const isAdmin = (callerDoc.data()?.roles || []).includes('admin') || adminDoc.exists;
+    if (!isAdmin) return res.status(403).json({ error: 'Admin only.' });
+
+    const { sessionId, subject, body } = req.body;
+    if (!sessionId || !subject || !body)
+      return res.status(400).json({ error: 'Missing sessionId, subject, or body.' });
+
+    const sessionRef  = db.collection('sessions').doc(sessionId);
+    const sessionSnap = await sessionRef.get();
+    if (!sessionSnap.exists) return res.status(404).json({ error: 'Session not found.' });
+
+    const session       = sessionSnap.data();
+    const attendeesSnap = await sessionRef.collection('attendees').get();
+
+    await Promise.all(attendeesSnap.docs.map(doc => {
+      const a = doc.data();
+      if (!a.email) return;
+      return sendEmail(a.email, subject,
+        _emailHtml(`Hi ${a.name || 'there'},`, [body])
+      );
+    }));
+
+    await sessionRef.update({
+      messages: FieldValue.arrayUnion({
+        sentAt:   new Date().toISOString(),
+        sentBy:   decoded.email || decoded.uid,
+        subject,
+        body,
+      }),
+    });
+
+    return res.json({ ok: true, sent: attendeesSnap.size });
+  });
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function _playerPrice(adminPrice) {
   if (!adminPrice || adminPrice <= 0) return 0;

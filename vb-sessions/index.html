@@ -310,6 +310,31 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════
+     OVERLAY — MESSAGE ATTENDEES
+══════════════════════════════════════════════════ -->
+<div class="overlay" id="message-overlay">
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Message attendees</span>
+      <button class="panel-close" onclick="closeMessageForm()">✕</button>
+    </div>
+    <div class="form-fields">
+      <div class="field">
+        <label class="field-label">Subject</label>
+        <input class="field-input" type="text" id="message-subject" placeholder="e.g. Change of venue" maxlength="120"
+          autocomplete="off" autocorrect="off" spellcheck="true" />
+      </div>
+      <div class="field">
+        <label class="field-label">Message</label>
+        <textarea class="field-input field-textarea" id="message-body" placeholder="Write your message here…" maxlength="2000"></textarea>
+      </div>
+    </div>
+    <div class="form-error" id="message-error"></div>
+    <button class="cta-btn" id="message-send-btn" onclick="sendMessage()">Send to all attendees →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
      OVERLAY — EDIT PROFILE
 ══════════════════════════════════════════════════ -->
 <div class="overlay" id="edit-profile-overlay">
