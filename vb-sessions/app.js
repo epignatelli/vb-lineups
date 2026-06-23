@@ -373,7 +373,7 @@ function goHome() {
   _setHash('home');
   showScreen('home');
   _setNav('primary', 'home');
-  _setTitle('');
+  _setTitle('Sessions');
   renderHome();
 }
 
@@ -382,7 +382,7 @@ function openAdminScreen() {
   _setHash('admin');
   showScreen('admin');
   _setNav('primary', 'admin');
-  _setTitle('');
+  _setTitle('Sessions');
 }
 
 function _formatDate(ts) {
@@ -2712,7 +2712,7 @@ function openFinancesScreen() {
   _setHash('finances');
   showScreen('finances');
   _setNav('primary', 'finances');
-  _setTitle('');
+  _setTitle('Sessions');
   renderFinances();
 }
 
@@ -2940,7 +2940,7 @@ function openInsightsScreen() {
   _setHash('insights');
   showScreen('insights');
   _setNav('primary', 'insights');
-  _setTitle('');
+  _setTitle('Sessions');
   renderInsights();
 }
 
@@ -3232,7 +3232,7 @@ function openSeriesScreen() {
   _setHash('series');
   showScreen('series');
   _setNav('primary', 'series');
-  _setTitle('');
+  _setTitle('Sessions');
   const footer = document.getElementById('series-footer');
   if (footer) footer.style.display = _isAdmin ? '' : 'none';
   renderSeries();
