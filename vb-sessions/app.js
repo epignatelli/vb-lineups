@@ -559,19 +559,33 @@ async function renderHome() {
     const now    = new Date();
     now.setHours(0, 0, 0, 0);
     const upcoming = sessions.filter(s => s.date?.toDate() >= now);
-    const past     = sessions.filter(s => s.date?.toDate() < now);
+    const past     = sessions.filter(s => s.date?.toDate() < now).reverse();
 
-    const groups = [
-      { label: 'Upcoming', items: upcoming },
-      { label: 'Past',     items: past.reverse() },
-    ].filter(g => g.items.length);
+    // Group upcoming by date label
+    const dateLabel = ts => {
+      const d = ts?.toDate ? ts.toDate() : new Date(ts);
+      return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    };
+    const upcomingByDate = [];
+    for (const s of upcoming) {
+      const label = dateLabel(s.date);
+      const last  = upcomingByDate[upcomingByDate.length - 1];
+      if (last && last.label === label) last.items.push(s);
+      else upcomingByDate.push({ label, items: [s] });
+    }
 
     const bannerHtml = _activeSeries ? _renderSeriesBanner(_activeSeries, _activeSeriesReg) : '';
-    container.innerHTML = providerBannerHtml + bannerHtml + groups.map(g => `
+    const upcomingHtml = upcomingByDate.map(g => `
       <div class="session-group">
         <div class="session-group-label">${g.label}</div>
         ${g.items.map(_renderSessionCard).join('')}
       </div>`).join('');
+    const pastHtml = past.length ? `
+      <div class="session-group">
+        <div class="session-group-label">Past</div>
+        ${past.map(_renderSessionCard).join('')}
+      </div>` : '';
+    container.innerHTML = providerBannerHtml + bannerHtml + upcomingHtml + pastHtml;
 
   } catch(e) {
     container.innerHTML = '<div class="home-empty">Couldn\'t load sessions. Check your connection.</div>';
@@ -1328,7 +1342,7 @@ function _renderUserRow(u) {
       actions += `<button class="role-toggle active coach" onclick="approveCoach('${u.id}','${safeName}')">Approve coach</button>
                   <button class="role-toggle" onclick="rejectCoach('${u.id}')">Reject</button>`;
     } else if (hasPendingProvider) {
-      actions += `<button class="role-toggle active provider" onclick="approveProvider('${u.id}','${safeName}')">Approve provider</button>
+      actions += `<button class="role-toggle active provider" onclick="approveProvider('${u.id}','${safeName}')">Approve host</button>
                   <button class="role-toggle" onclick="rejectProvider('${u.id}')">Reject</button>`;
     } else if (hasPendingAdmin) {
       actions += _isOwner
@@ -1339,7 +1353,7 @@ function _renderUserRow(u) {
       if (canManageOwner)    actions += `<button class="role-toggle${hasOwner ? ' active owner' : ''}" onclick="toggleRole('${u.id}','owner','${safeName}')">Owner</button>`;
       if (canManageAdmin)    actions += `<button class="role-toggle${hasAdmin ? ' active admin' : ''}" onclick="toggleRole('${u.id}','admin','${safeName}')">Admin</button>`;
       if (canManageCoach)    actions += `<button class="role-toggle${hasCoach ? ' active coach' : ''}" onclick="toggleRole('${u.id}','coach','${safeName}')">Coach</button>`;
-      if (canManageProvider) actions += `<button class="role-toggle${hasProvider ? ' active provider' : ''}" onclick="toggleRole('${u.id}','provider','${safeName}')">Provider</button>`;
+      if (canManageProvider) actions += `<button class="role-toggle${hasProvider ? ' active provider' : ''}" onclick="toggleRole('${u.id}','provider','${safeName}')">Host</button>`;
       if (canNominate)       actions += `<button class="role-toggle" onclick="nominateForAdmin('${u.id}','${safeName}')">Nominate admin</button>`;
     }
     if (canRemove) actions += `<button class="role-toggle danger" onclick="banUser('${u.id}','${safeName}')">Remove</button>`;
@@ -1356,7 +1370,7 @@ function _renderUserRow(u) {
           ${hasOwner ? '<span class="user-flag owner-badge">owner</span>' : ''}
           ${incomplete ? '<span class="user-flag">incomplete</span>' : ''}
           ${hasPendingCoach    ? '<span class="user-flag coach-req">coach request</span>' : ''}
-          ${hasPendingProvider ? '<span class="user-flag provider-req">provider request</span>' : ''}
+          ${hasPendingProvider ? '<span class="user-flag provider-req">host request</span>' : ''}
           ${hasPendingAdmin    ? '<span class="user-flag admin-req">admin pending</span>' : ''}
         </div>
         <div class="user-meta">${esc(u.email || '')}${genderSym ? ` · ${genderSym}` : ''}${posStr ? ` · ${posStr}` : ''}${joined ? ` · joined ${joined}` : ''}</div>
@@ -1456,23 +1470,23 @@ async function rejectCoach(uid) {
 async function approveProvider(uid, displayName) {
   if (!_isAdmin) return;
   const label = displayName || uid;
-  if (!confirm(`Approve ${label} as Session Provider?`)) return;
+  if (!confirm(`Approve ${label} as a host?`)) return;
   try {
     const doc   = await _userRef(uid).get();
     const roles = doc.data()?.roles || ['player'];
     if (!roles.includes('provider')) roles.push('provider');
     await _userRef(uid).update({ roles, providerRequest: false });
-    showToast('Provider approved.');
+    showToast('Host approved.');
     renderUsers();
   } catch(e) { showToast('Couldn\'t approve. Try again.', 'error'); }
 }
 
 async function rejectProvider(uid) {
   if (!_isAdmin) return;
-  if (!confirm('Reject this provider request?')) return;
+  if (!confirm('Reject this host request?')) return;
   try {
     await _userRef(uid).update({ providerRequest: false });
-    showToast('Provider request rejected.');
+    showToast('Host request rejected.');
     renderUsers();
   } catch(e) { showToast('Couldn\'t reject. Try again.', 'error'); }
 }
@@ -1524,12 +1538,13 @@ async function openProfileScreen(uid) {
     const roleOrder   = ['owner', 'admin', 'provider', 'coach'];
     const displayRoles = roleOrder.filter(r => roles.includes(r));
 
+    const roleLabel = { owner: 'owner', admin: 'admin', provider: 'host', coach: 'coach' };
     const roleBadges = displayRoles.map(r => {
       const cls = r === 'owner' ? 'level owner-badge-lg'
                 : r === 'admin' ? 'level admin-badge-lg'
                 : r === 'provider' ? 'level provider-badge-lg'
                 : 'level';
-      return `<span class="session-badge ${cls}">${r}</span>`;
+      return `<span class="session-badge ${cls}">${roleLabel[r] || r}</span>`;
     }).join(' ');
 
     const metaRows = [
@@ -2907,11 +2922,11 @@ function _updateProviderRequestBtn(data) {
 
   if (!isProvider) {
     if (isPending) {
-      btn.textContent = 'Provider request pending';
+      btn.textContent = 'Host request pending';
       btn.disabled    = true;
       btn.className   = 'coach-request-btn pending';
     } else {
-      btn.textContent = 'Request session provider status →';
+      btn.textContent = 'Host with us →';
       btn.disabled    = false;
       btn.className   = 'coach-request-btn';
     }
