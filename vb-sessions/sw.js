@@ -1,4 +1,4 @@
-const CACHE = 'vb-sessions-v52';
+const CACHE = 'vb-sessions-v53';
 const ASSETS = ['./', './index.html', './app.js', './style.css', './manifest.json'];
 
 self.addEventListener('install', e => {

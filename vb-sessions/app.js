@@ -2912,38 +2912,34 @@ async function requestProviderStatus() {
 async function requestCoachStatusFromView() {
   if (!_currentUser) return;
   const btn = document.getElementById('coach-request-view-btn');
-  if (btn) btn.disabled = true;
+  if (btn) { btn.textContent = 'Request pending'; btn.disabled = true; }
   try {
     await _userRef(_currentUser.uid).update({
       coachRequest: true,
       updatedAt:    firebase.firestore.FieldValue.serverTimestamp(),
     });
     await callFn('notifyCoachRequest', { uid: _currentUser.uid, name: _currentUser.displayName || '' });
-    showToast('Coach request sent — an admin will review it.');
-    if (btn) { btn.textContent = 'Request pending'; btn.className = 'role-status-btn'; }
   } catch(e) {
     console.error('Coach request failed:', e);
-    if (btn) btn.disabled = false;
-    showToast('Couldn\'t send request. Try again.', 'error');
+    if (btn) { btn.textContent = 'Request →'; btn.disabled = false; }
+    showToast('Request failed: ' + (e.message || 'unknown error'), 'error');
   }
 }
 
 async function requestProviderStatusFromView() {
   if (!_currentUser) return;
   const btn = document.getElementById('provider-request-view-btn');
-  if (btn) btn.disabled = true;
+  if (btn) { btn.textContent = 'Request pending'; btn.disabled = true; }
   try {
     await _userRef(_currentUser.uid).update({
       providerRequest: true,
       updatedAt:       firebase.firestore.FieldValue.serverTimestamp(),
     });
     await callFn('notifyProviderRequest', { uid: _currentUser.uid, name: _currentUser.displayName || '' });
-    showToast('Host request sent — an admin will review it.');
-    if (btn) { btn.textContent = 'Request pending'; btn.className = 'role-status-btn'; }
   } catch(e) {
     console.error('Provider request failed:', e);
-    if (btn) btn.disabled = false;
-    showToast('Couldn\'t send request. Try again.', 'error');
+    if (btn) { btn.textContent = 'Request →'; btn.disabled = false; }
+    showToast('Request failed: ' + (e.message || 'unknown error'), 'error');
   }
 }
 
