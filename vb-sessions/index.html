@@ -27,7 +27,6 @@
       <button class="nav-back" id="nav-back-btn" onclick="_navBack()" style="display:none">←</button>
       <span class="nav-screen-title" id="nav-screen-title"></span>
     </div>
-    <button class="filter-icon-btn" id="filter-icon-btn" onclick="openFilterSheet()" style="display:none" title="Filter sessions">⊟</button>
     <div class="topbar-right" id="nav-avatar-wrap">
       <button class="auth-btn" id="auth-btn" onclick="handleAuthClick()">Sign in</button>
     </div>
@@ -53,30 +52,13 @@
   <div class="footer">
     <button class="cta-btn" id="home-new-btn" onclick="openSessionForm()" style="display:none">+ New session</button>
   </div>
-  <!-- Filter sheet -->
-  <div class="filter-sheet-backdrop" id="filter-sheet-backdrop" onclick="closeFilterSheet()"></div>
-  <div class="filter-sheet" id="filter-sheet">
-    <div class="filter-sheet-header">
-      <span class="filter-sheet-title">Filter sessions</span>
-      <button class="panel-close" onclick="closeFilterSheet()">✕</button>
-    </div>
-    <div class="filter-sheet-body">
-      <div class="filter-section">
-        <div class="filter-section-label">Level</div>
-        <div class="filter-pills" id="filter-level-pills">
-          <button class="level-pill active" data-level=""             onclick="setLevelFilter('')">All</button>
-          <button class="level-pill"        data-level="any"          onclick="setLevelFilter('any')">Any level</button>
-          <button class="level-pill"        data-level="beginner"     onclick="setLevelFilter('beginner')">Beginner</button>
-          <button class="level-pill"        data-level="intermediate" onclick="setLevelFilter('intermediate')">Intermediate</button>
-          <button class="level-pill"        data-level="advanced"     onclick="setLevelFilter('advanced')">Advanced</button>
-          <button class="level-pill"        data-level="competitive"  onclick="setLevelFilter('competitive')">Competitive</button>
-        </div>
-      </div>
-    </div>
-    <div class="filter-sheet-footer">
-      <button class="cta-btn secondary-btn" onclick="clearAllFilters()">Clear all</button>
-      <button class="cta-btn" onclick="closeFilterSheet()">Done</button>
-    </div>
+  <div class="home-filters" id="home-filters">
+    <button class="level-pill active" data-level=""             onclick="setLevelFilter('')">All</button>
+    <button class="level-pill"        data-level="any"          onclick="setLevelFilter('any')">Any level</button>
+    <button class="level-pill"        data-level="beginner"     onclick="setLevelFilter('beginner')">Beginner</button>
+    <button class="level-pill"        data-level="intermediate" onclick="setLevelFilter('intermediate')">Intermediate</button>
+    <button class="level-pill"        data-level="advanced"     onclick="setLevelFilter('advanced')">Advanced</button>
+    <button class="level-pill"        data-level="competitive"  onclick="setLevelFilter('competitive')">Competitive</button>
   </div>
 
   <!-- Create / Edit session panel -->
