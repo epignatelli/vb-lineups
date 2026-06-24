@@ -1603,26 +1603,35 @@ async function openProfileScreen(uid) {
 
     const safeUid  = esc(targetUid);
     const safeName = esc(u.name || '');
-    const adminSection = _isAdmin && !isOwn && (hasPending || hasPendingProvider) ? `
+    const _activeTag  = `<span class="role-status-active">Active</span>`;
+    const adminSection = _isAdmin && !isOwn ? `
       <div class="detail-section">
-        <div class="detail-section-title">Pending requests</div>
+        <div class="detail-section-title">Membership</div>
         <div class="role-status-list">
-          ${hasPending ? `
-            <div class="role-status-row">
-              <span class="role-status-name">Coach</span>
+          <div class="role-status-row">
+            <span class="role-status-name">Player</span>
+            ${_activeTag}
+          </div>
+          <div class="role-status-row">
+            <span class="role-status-name">Coach</span>
+            ${hasCoach ? _activeTag : hasPending ? `
               <div class="role-action-btns">
                 <button class="role-action-approve" onclick="approveCoach('${safeUid}','${safeName}')">Approve</button>
                 <button class="role-action-reject" onclick="rejectCoach('${safeUid}')">Reject</button>
-              </div>
-            </div>` : ''}
-          ${hasPendingProvider ? `
-            <div class="role-status-row">
-              <span class="role-status-name">Host</span>
+              </div>` : `<span class="role-status-locked">Not requested</span>`}
+          </div>
+          <div class="role-status-row">
+            <span class="role-status-name">Host</span>
+            ${hasProvider ? _activeTag : hasPendingProvider ? `
               <div class="role-action-btns">
                 <button class="role-action-approve" onclick="approveProvider('${safeUid}','${safeName}')">Approve</button>
                 <button class="role-action-reject" onclick="rejectProvider('${safeUid}')">Reject</button>
-              </div>
-            </div>` : ''}
+              </div>` : `<span class="role-status-locked">Not requested</span>`}
+          </div>
+          <div class="role-status-row">
+            <span class="role-status-name">Admin</span>
+            ${roles.includes('admin') || roles.includes('owner') ? _activeTag : `<span class="role-status-locked">—</span>`}
+          </div>
         </div>
       </div>` : '';
 
