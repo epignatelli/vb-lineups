@@ -1552,20 +1552,43 @@ async function openProfileScreen(uid) {
       u.createdAt ? `<div class="detail-meta-row"><span class="detail-meta-label">Joined</span><span>${_formatDate(u.createdAt)}</span></div>` : '',
     ].filter(Boolean).join('');
 
+    const _roleCheck  = `<span class="role-status-active">Active</span>`;
+    const _roleLocked = `<span class="role-status-locked">Invitation only</span>`;
+    const rolesSection = isOwn ? `
+      <div class="detail-section">
+        <div class="detail-section-title">Membership</div>
+        <div class="role-status-list">
+          <div class="role-status-row">
+            <span class="role-status-name">Player</span>
+            ${_roleCheck}
+          </div>
+          <div class="role-status-row">
+            <span class="role-status-name">Coach</span>
+            ${hasCoach
+              ? _roleCheck
+              : hasPending
+                ? `<span class="role-status-pending">Request pending</span>`
+                : `<button class="role-status-btn" id="coach-request-view-btn" onclick="requestCoachStatusFromView()">Request →</button>`}
+          </div>
+          <div class="role-status-row">
+            <span class="role-status-name">Host</span>
+            ${hasProvider
+              ? _roleCheck
+              : hasPendingProvider
+                ? `<span class="role-status-pending">Request pending</span>`
+                : `<button class="role-status-btn" id="provider-request-view-btn" onclick="requestProviderStatusFromView()">Host with us →</button>`}
+          </div>
+          <div class="role-status-row role-status-row--dim">
+            <span class="role-status-name">Admin</span>
+            ${roles.includes('admin') || roles.includes('owner') ? _roleCheck : _roleLocked}
+          </div>
+        </div>
+      </div>` : '';
+
     const ownActions = isOwn ? `
       <div class="profile-actions">
         <button class="cta-btn secondary-btn" onclick="openEditProfile()">Edit profile →</button>
-        ${!hasCoach ? `
-          <button class="coach-request-btn${hasPending ? ' pending' : ''}" id="coach-request-btn"
-            onclick="requestCoachStatus()" ${hasPending ? 'disabled' : ''}>
-            ${hasPending ? 'Coach request pending' : 'Request coach status →'}
-          </button>` : ''}
-        ${!hasProvider ? `
-          <button class="coach-request-btn${hasPendingProvider ? ' pending' : ''}" id="provider-request-view-btn"
-            onclick="requestProviderStatusFromView()" ${hasPendingProvider ? 'disabled' : ''}>
-            ${hasPendingProvider ? 'Host request pending' : 'Host with us →'}
-          </button>` : ''}
-        <button class="cta-btn secondary-btn" onclick="handleAuthClick()" style="margin-top:8px">Sign out</button>
+        <button class="cta-btn secondary-btn" onclick="handleAuthClick()">Sign out</button>
       </div>` : '';
 
     const showHistory = isOwn || _isAdmin;
@@ -1694,6 +1717,7 @@ async function openProfileScreen(uid) {
           ${roleBadges ? `<div class="profile-role-badges">${roleBadges}</div>` : ''}
         </div>
         ${metaRows ? `<div class="detail-section"><div class="detail-meta-grid">${metaRows}</div></div>` : ''}
+        ${rolesSection}
         ${ownActions}
         ${coachPaySection}
         ${seriesPassSection}
@@ -2849,6 +2873,25 @@ async function requestProviderStatus() {
   }
 }
 
+async function requestCoachStatusFromView() {
+  if (!_currentUser) return;
+  const btn = document.getElementById('coach-request-view-btn');
+  if (btn) btn.disabled = true;
+  try {
+    await _userRef(_currentUser.uid).update({
+      coachRequest: true,
+      updatedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    await callFn('notifyCoachRequest', { uid: _currentUser.uid, name: _currentUser.displayName || '' });
+    showToast('Coach request sent — an admin will review it.');
+    if (btn) { btn.textContent = 'Request pending'; btn.className = 'role-status-btn'; }
+  } catch(e) {
+    console.error('Coach request failed:', e);
+    if (btn) btn.disabled = false;
+    showToast('Couldn\'t send request. Try again.', 'error');
+  }
+}
+
 async function requestProviderStatusFromView() {
   if (!_currentUser) return;
   const btn = document.getElementById('provider-request-view-btn');
@@ -2860,7 +2903,7 @@ async function requestProviderStatusFromView() {
     });
     await callFn('notifyProviderRequest', { uid: _currentUser.uid, name: _currentUser.displayName || '' });
     showToast('Host request sent — an admin will review it.');
-    if (btn) { btn.textContent = 'Host request pending'; }
+    if (btn) { btn.textContent = 'Request pending'; btn.className = 'role-status-btn'; }
   } catch(e) {
     console.error('Provider request failed:', e);
     if (btn) btn.disabled = false;

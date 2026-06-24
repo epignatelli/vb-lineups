@@ -685,8 +685,33 @@ body {
 .session-badge.admin-badge-lg    { background: var(--amber-bg);  border: 1px solid rgba(245,166,35,.35);  color: var(--amber); }
 .session-badge.provider-badge-lg { background: var(--green-bg);  border: 1px solid rgba(34,201,122,.35);  color: var(--green); }
 
+.role-status-list { display: flex; flex-direction: column; }
+.role-status-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+.role-status-row:last-child { border-bottom: none; }
+.role-status-row--dim { opacity: .45; }
+.role-status-name {
+  font-size: 14px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase;
+}
+.role-status-active { font-size: 13px; font-weight: 700; color: var(--amber); }
+.role-status-pending { font-size: 13px; color: var(--muted); font-style: italic; }
+.role-status-locked { font-size: 12px; color: var(--muted); letter-spacing: .02em; }
+.role-status-btn {
+  background: none; border: 1px solid var(--border2);
+  color: var(--text); font-family: inherit;
+  font-size: 13px; font-weight: 600; letter-spacing: .03em;
+  padding: 5px 12px; border-radius: var(--radius-sm);
+  cursor: pointer; transition: border-color 120ms, color 120ms;
+}
+.role-status-btn:hover { border-color: var(--amber); color: var(--amber); }
+.role-status-btn:disabled { opacity: .5; cursor: default; }
+
 .profile-actions {
-  display: flex; flex-direction: column; gap: 10px; margin-top: 4px;
+  display: flex; flex-direction: column; gap: 10px;
 }
 
 /* ── Session / coach payment history rows ────────────────────────────────── */
