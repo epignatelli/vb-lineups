@@ -128,7 +128,7 @@
             </select>
           </div>
         </div>
-        <div class="field">
+        <div class="field" id="form-series-field">
           <label class="field-label">Series <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">— optional</span></label>
           <div class="venue-field-row">
             <select class="field-input field-select" id="form-series-select">
@@ -141,7 +141,7 @@
           <label class="field-label">Description</label>
           <textarea class="field-input field-textarea" id="form-description" placeholder="What to expect, skill level, what to bring…" maxlength="400"></textarea>
         </div>
-        <div class="field-row">
+        <div class="field-row" id="form-coach-field">
           <div class="field">
             <label class="field-label">Coach</label>
             <select class="field-input field-select" id="form-coach-select" onchange="onCoachSelectChange()">
@@ -171,13 +171,13 @@
             <label class="field-label">Cost (£)</label>
             <input class="field-input" type="number" id="form-cost" min="0" step="0.5" inputmode="decimal" placeholder="0" oninput="updateCostPreview()" />
             <div class="field-hint" id="form-cost-preview">Free session — no payment required</div>
-            <label class="toggle-row" style="margin-top:6px">
+            <label class="toggle-row" id="form-absorb-fee-field" style="margin-top:6px">
               <input type="checkbox" id="form-absorb-fee" onchange="updateCostPreview()" />
               <span class="toggle-label-text">Waive booking fee</span>
             </label>
           </div>
         </div>
-        <div class="field">
+        <div class="field" id="form-coach-fee-field">
           <label class="field-label">Coach fee (£)</label>
           <input class="field-input" type="number" id="form-coach-fee" min="0" step="0.5" inputmode="decimal" placeholder="50" />
           <div class="field-hint">Amount paid to the coach after the session closes.</div>
@@ -192,7 +192,7 @@
             <span class="toggle-label-text">Ask players for their position when registering</span>
           </label>
         </div>
-        <div class="field">
+        <div class="field" id="form-status-field">
           <label class="field-label">Status</label>
           <select class="field-input field-select" id="form-status">
             <option value="open">Open</option>
@@ -536,6 +536,14 @@
       <div class="field" id="coach-request-field">
         <button class="coach-request-btn" id="coach-request-btn" onclick="requestCoachStatus()">Request coach status →</button>
         <div class="field-hint">An admin will review your request.</div>
+      </div>
+      <div class="field" id="provider-request-field">
+        <button class="coach-request-btn" id="provider-request-btn" onclick="requestProviderStatus()">Request session provider status →</button>
+        <div class="field-hint">Providers can create and host their own sessions. An admin will review your request.</div>
+      </div>
+      <div class="field" id="provider-stripe-field" style="display:none">
+        <button class="cta-btn" id="provider-stripe-btn" onclick="startProviderOnboarding()">Set up payments →</button>
+        <div class="field-hint">Connect your bank account to receive payments from your sessions.</div>
       </div>
     </div>
     <div class="form-error" id="edit-profile-error"></div>

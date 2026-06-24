@@ -126,6 +126,16 @@ exports.createCheckoutSession = functions
     if (playerPrice <= 0)
       return res.status(400).json({ error: 'This session is free.' });
 
+    // If this session has a provider, route the payment to their Stripe account
+    let transferData;
+    if (session.providerUid) {
+      const providerSnap = await db.collection('users').doc(session.providerUid).get();
+      const providerStripeId = providerSnap.data()?.stripeAccountId;
+      if (providerStripeId) {
+        transferData = { destination: providerStripeId };
+      }
+    }
+
     let checkout;
     try {
       checkout = await getStripe().checkout.sessions.create({
@@ -150,6 +160,7 @@ exports.createCheckoutSession = functions
         },
         success_url: successUrl,
         cancel_url:  cancelUrl,
+        ...(transferData ? { transfer_data: transferData, application_fee_amount: 0 } : {}),
       });
     } catch (e) {
       console.error('Stripe checkout error:', e.message);
@@ -307,6 +318,11 @@ exports.stripeWebhook = functions
       const coachDoc  = usersSnap.docs[0];
       const coachUid  = coachDoc.id;
       const coachData = coachDoc.data();
+
+      // If this user is a provider, mark onboarding complete
+      if ((coachData.roles || []).includes('provider') && !coachData.providerOnboardingComplete) {
+        await db.collection('users').doc(coachUid).update({ providerOnboardingComplete: true });
+      }
 
       // Find all sessions in onboarding state for this coach
       const sessionsSnap = await db.collection('sessions')
@@ -1325,6 +1341,87 @@ exports.notifyAdminRequest = functions
     ));
 
     return res.json({ ok: true });
+  });
+
+// ── notifyProviderRequest ─────────────────────────────────────────────────────
+exports.notifyProviderRequest = functions
+  .region(REGION)
+  .runWith({ secrets: [GMAIL_APP_PASSWORD] })
+  .https.onRequest(async (req, res) => {
+    setCors(res);
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    if (req.method !== 'POST')    return res.status(405).end();
+
+    let decoded;
+    try { decoded = await verifyAuth(req); }
+    catch (e) { return res.status(401).json({ error: e.message }); }
+
+    const { uid, name } = req.body;
+    if (!uid) return res.status(400).json({ error: 'Missing uid.' });
+
+    const db         = getFirestore();
+    const adminsSnap = await db.collection('admins').get();
+    const appUrl     = 'https://epignatelli.github.io/apps/vb-sessions/#users';
+
+    const safeName = (name || uid || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    await Promise.all(adminsSnap.docs.map(doc =>
+      sendEmail(doc.id,
+        `Session provider request from ${safeName}`,
+        _emailHtml('Hi,', [
+          `<strong>${safeName}</strong> has requested to become a Session Provider.`,
+          'Providers can create and host their own sessions and will receive player payments directly via Stripe.',
+          'Review and approve or reject the request from the Users screen.',
+        ], null, appUrl, 'Go to Users →')
+      )
+    ));
+
+    return res.json({ ok: true });
+  });
+
+// ── providerOnboardingLink ────────────────────────────────────────────────────
+exports.providerOnboardingLink = functions
+  .region(REGION)
+  .runWith({ secrets: [STRIPE_SECRET_KEY] })
+  .https.onRequest(async (req, res) => {
+    setCors(res);
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    if (req.method !== 'POST')    return res.status(405).end();
+
+    let decoded;
+    try { decoded = await verifyAuth(req); }
+    catch (e) { return res.status(401).json({ error: e.message }); }
+
+    const db       = getFirestore();
+    const userSnap = await db.collection('users').doc(decoded.uid).get();
+    if (!userSnap.exists) return res.status(404).json({ error: 'User not found.' });
+
+    const userData = userSnap.data();
+    if (!(userData.roles || []).includes('provider'))
+      return res.status(403).json({ error: 'Not a provider.' });
+
+    const stripe  = getStripe();
+    const baseUrl = 'https://epignatelli.github.io/apps/vb-sessions/';
+
+    let accountId = userData.stripeAccountId;
+    if (!accountId) {
+      const account = await stripe.accounts.create({
+        type:         'express',
+        country:      'GB',
+        email:        userData.email || undefined,
+        capabilities: { transfers: { requested: true } },
+      });
+      accountId = account.id;
+      await db.collection('users').doc(decoded.uid).update({ stripeAccountId: accountId });
+    }
+
+    const accountLink = await stripe.accountLinks.create({
+      account:     accountId,
+      refresh_url: baseUrl,
+      return_url:  baseUrl,
+      type:        'account_onboarding',
+    });
+
+    return res.json({ url: accountLink.url });
   });
 
 // ── removeUser ───────────────────────────────────────────────────────────────

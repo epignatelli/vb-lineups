@@ -19,6 +19,7 @@ let _currentUser  = null;
 let _currentRoles = [];
 let _isAdmin      = false;
 let _isCoach      = false;
+let _isProvider   = false;
 let _isOwner      = false;
 let _legacyAdmin  = false;   // cached check against admins/{email} collection
 let _userDocUnsub = null;    // unsubscribe fn for own user doc listener
@@ -146,8 +147,9 @@ function _subscribeToUserDoc(user) {
   _userDocUnsub = _userRef(user.uid).onSnapshot(doc => {
     _currentRoles = (doc.data()?.roles) || ['player'];
     _isOwner = _currentRoles.includes('owner');
-    _isAdmin = _legacyAdmin || _isOwner || _currentRoles.includes('admin');
-    _isCoach = _currentRoles.includes('coach');
+    _isAdmin    = _legacyAdmin || _isOwner || _currentRoles.includes('admin');
+    _isCoach    = _currentRoles.includes('coach');
+    _isProvider = _currentRoles.includes('provider');
     _updateAuthUI();
     renderHome();
   }, err => console.error('User doc listener error:', err));
@@ -210,7 +212,7 @@ function _updateAuthUI() {
     }
   }
   const newBtn = document.getElementById('home-new-btn');
-  if (newBtn) newBtn.style.display = _isAdmin ? '' : 'none';
+  if (newBtn) newBtn.style.display = (_isAdmin || _isProvider) ? '' : 'none';
   // Refresh admin-only tabs and tab strip visibility
   document.querySelectorAll('.admin-tab').forEach(t => {
     t.style.display = _isAdmin ? '' : 'none';
@@ -272,9 +274,10 @@ getAuth().onAuthStateChanged(async user => {
     }
   } else {
     _currentRoles = [];
-    _isAdmin  = false;
-    _isCoach  = false;
-    _isOwner  = false;
+    _isAdmin    = false;
+    _isCoach    = false;
+    _isProvider = false;
+    _isOwner    = false;
     _legacyAdmin = false;
     _updateAuthUI();
     if (!_initialRouted) { _initialRouted = true; await _routeFromHash(); }
@@ -639,10 +642,10 @@ function _renderSessionCard(s) {
         <span class="session-meta-item">👥 ${countStr}</span>
         <span class="session-meta-item">${esc(costStr)}</span>
       </div>
-      ${_isAdmin ? `
+      ${(_isAdmin || (_isProvider && _currentUser && s.providerUid === _currentUser.uid)) ? `
         <div class="session-admin-btns" onclick="event.stopPropagation()">
           <button class="icon-btn" onclick="openSessionForm('${s.id}')" title="Edit">✎</button>
-          <button class="icon-btn danger" onclick="deleteSession('${s.id}','${esc(s.venue || '')}',this)" title="Delete">✕</button>
+          ${_isAdmin ? `<button class="icon-btn danger" onclick="deleteSession('${s.id}','${esc(s.venue || '')}',this)" title="Delete">✕</button>` : ''}
         </div>` : ''}
     </div>`;
 }
@@ -1229,9 +1232,11 @@ function _applyUserFilter() {
   const container = document.getElementById('users-content');
   let users = _allUsers.filter(u => {
     if (q && !((u.name||'').toLowerCase().includes(q)) && !((u.email||'').toLowerCase().includes(q))) return false;
-    if (_userFilter === 'coach')      return (u.roles||[]).includes('coach');
-    if (_userFilter === 'admin')      return (u.roles||[]).includes('admin');
-    if (_userFilter === 'pending')    return !!u.coachRequest && !(u.roles||[]).includes('coach');
+    if (_userFilter === 'coach')            return (u.roles||[]).includes('coach');
+    if (_userFilter === 'provider')         return (u.roles||[]).includes('provider');
+    if (_userFilter === 'admin')            return (u.roles||[]).includes('admin');
+    if (_userFilter === 'pending')          return (!!u.coachRequest && !(u.roles||[]).includes('coach'))
+                                                || (!!u.providerRequest && !(u.roles||[]).includes('provider'));
     if (_userFilter === 'incomplete') return !u.gender || !(u.positions||[]).length;
     return true;
   });
@@ -1242,11 +1247,13 @@ function _applyUserFilter() {
 function _renderUserRow(u) {
   const roles           = u.roles || ['player'];
   const isMe            = _currentUser && u.id === _currentUser.uid;
-  const hasOwner        = roles.includes('owner');
-  const hasAdmin        = roles.includes('admin');
-  const hasCoach        = roles.includes('coach');
-  const hasPendingCoach = !!u.coachRequest && !hasCoach;
-  const hasPendingAdmin = !!u.adminRequest && !hasAdmin;
+  const hasOwner           = roles.includes('owner');
+  const hasAdmin           = roles.includes('admin');
+  const hasCoach           = roles.includes('coach');
+  const hasProvider        = roles.includes('provider');
+  const hasPendingCoach    = !!u.coachRequest && !hasCoach;
+  const hasPendingProvider = !!u.providerRequest && !hasProvider;
+  const hasPendingAdmin    = !!u.adminRequest && !hasAdmin;
   const initials        = (u.name || u.email || '?')[0].toUpperCase();
   const incomplete      = !u.gender || !(u.positions||[]).length;
   const posLabels       = { setter:'S', hitter:'H', middle:'M', libero:'L' };
@@ -1256,27 +1263,32 @@ function _renderUserRow(u) {
   const safeName        = esc(u.name || u.email || '');
 
   // What the current user can do to this row:
-  const canManageOwner  = _isOwner && !isMe && !hasOwner;
-  const canManageAdmin  = _isOwner && !isMe;
-  const canManageCoach  = _isAdmin && !isMe;
-  const canNominate     = _isAdmin && !_isOwner && !hasAdmin && !hasOwner && !hasPendingAdmin;
-  const canRemove       = _isOwner ? (!isMe && !hasOwner) : (_isAdmin && !hasAdmin && !hasOwner);
+  const canManageOwner    = _isOwner && !isMe && !hasOwner;
+  const canManageAdmin    = _isOwner && !isMe;
+  const canManageCoach    = _isAdmin && !isMe;
+  const canManageProvider = _isAdmin && !isMe;
+  const canNominate       = _isAdmin && !_isOwner && !hasAdmin && !hasOwner && !hasPendingAdmin;
+  const canRemove         = _isOwner ? (!isMe && !hasOwner) : (_isAdmin && !hasAdmin && !hasOwner);
 
   let actions = '';
   if (_isAdmin) {
     if (hasPendingCoach) {
       actions += `<button class="role-toggle active coach" onclick="approveCoach('${u.id}','${safeName}')">Approve coach</button>
                   <button class="role-toggle" onclick="rejectCoach('${u.id}')">Reject</button>`;
+    } else if (hasPendingProvider) {
+      actions += `<button class="role-toggle active provider" onclick="approveProvider('${u.id}','${safeName}')">Approve provider</button>
+                  <button class="role-toggle" onclick="rejectProvider('${u.id}')">Reject</button>`;
     } else if (hasPendingAdmin) {
       actions += _isOwner
         ? `<button class="role-toggle active admin" onclick="approveAdmin('${u.id}','${safeName}')">Approve admin</button>
            <button class="role-toggle" onclick="rejectAdmin('${u.id}')">Reject</button>`
         : `<span class="role-toggle active admin" style="cursor:default">Admin pending</span>`;
     } else {
-      if (canManageOwner)  actions += `<button class="role-toggle${hasOwner ? ' active owner' : ''}" onclick="toggleRole('${u.id}','owner','${safeName}')">Owner</button>`;
-      if (canManageAdmin)  actions += `<button class="role-toggle${hasAdmin ? ' active admin' : ''}" onclick="toggleRole('${u.id}','admin','${safeName}')">Admin</button>`;
-      if (canManageCoach)  actions += `<button class="role-toggle${hasCoach ? ' active coach' : ''}" onclick="toggleRole('${u.id}','coach','${safeName}')">Coach</button>`;
-      if (canNominate)     actions += `<button class="role-toggle" onclick="nominateForAdmin('${u.id}','${safeName}')">Nominate admin</button>`;
+      if (canManageOwner)    actions += `<button class="role-toggle${hasOwner ? ' active owner' : ''}" onclick="toggleRole('${u.id}','owner','${safeName}')">Owner</button>`;
+      if (canManageAdmin)    actions += `<button class="role-toggle${hasAdmin ? ' active admin' : ''}" onclick="toggleRole('${u.id}','admin','${safeName}')">Admin</button>`;
+      if (canManageCoach)    actions += `<button class="role-toggle${hasCoach ? ' active coach' : ''}" onclick="toggleRole('${u.id}','coach','${safeName}')">Coach</button>`;
+      if (canManageProvider) actions += `<button class="role-toggle${hasProvider ? ' active provider' : ''}" onclick="toggleRole('${u.id}','provider','${safeName}')">Provider</button>`;
+      if (canNominate)       actions += `<button class="role-toggle" onclick="nominateForAdmin('${u.id}','${safeName}')">Nominate admin</button>`;
     }
     if (canRemove) actions += `<button class="role-toggle danger" onclick="banUser('${u.id}','${safeName}')">Remove</button>`;
   }
@@ -1291,8 +1303,9 @@ function _renderUserRow(u) {
           ${esc(u.name || '—')}${isMe ? ' <span class="user-you">you</span>' : ''}
           ${hasOwner ? '<span class="user-flag owner-badge">owner</span>' : ''}
           ${incomplete ? '<span class="user-flag">incomplete</span>' : ''}
-          ${hasPendingCoach ? '<span class="user-flag coach-req">coach request</span>' : ''}
-          ${hasPendingAdmin ? '<span class="user-flag admin-req">admin pending</span>' : ''}
+          ${hasPendingCoach    ? '<span class="user-flag coach-req">coach request</span>' : ''}
+          ${hasPendingProvider ? '<span class="user-flag provider-req">provider request</span>' : ''}
+          ${hasPendingAdmin    ? '<span class="user-flag admin-req">admin pending</span>' : ''}
         </div>
         <div class="user-meta">${esc(u.email || '')}${genderSym ? ` · ${genderSym}` : ''}${posStr ? ` · ${posStr}` : ''}${joined ? ` · joined ${joined}` : ''}</div>
       </div>
@@ -1388,6 +1401,30 @@ async function rejectCoach(uid) {
   } catch(e) { showToast('Couldn\'t reject. Try again.', 'error'); }
 }
 
+async function approveProvider(uid, displayName) {
+  if (!_isAdmin) return;
+  const label = displayName || uid;
+  if (!confirm(`Approve ${label} as Session Provider?`)) return;
+  try {
+    const doc   = await _userRef(uid).get();
+    const roles = doc.data()?.roles || ['player'];
+    if (!roles.includes('provider')) roles.push('provider');
+    await _userRef(uid).update({ roles, providerRequest: false });
+    showToast('Provider approved.');
+    renderUsers();
+  } catch(e) { showToast('Couldn\'t approve. Try again.', 'error'); }
+}
+
+async function rejectProvider(uid) {
+  if (!_isAdmin) return;
+  if (!confirm('Reject this provider request?')) return;
+  try {
+    await _userRef(uid).update({ providerRequest: false });
+    showToast('Provider request rejected.');
+    renderUsers();
+  } catch(e) { showToast('Couldn\'t reject. Try again.', 'error'); }
+}
+
 async function banUser(uid, name) {
   if (!_isAdmin) return;
   if (!confirm(`Remove ${name || 'this user'}? This will permanently delete their account.`)) return;
@@ -1438,11 +1475,14 @@ async function openProfileScreen(uid) {
     const posLabels   = { setter: 'Setter', hitter: 'Hitter', middle: 'Middle', libero: 'Libero' };
     const genderLabel = { man: 'Man', woman: 'Woman', nonbinary: 'Non-binary' }[u.gender] || '';
     const initials    = (u.name || u.email || '?')[0].toUpperCase();
-    const roleOrder   = ['owner', 'admin', 'coach'];
+    const roleOrder   = ['owner', 'admin', 'provider', 'coach'];
     const displayRoles = roleOrder.filter(r => roles.includes(r));
 
     const roleBadges = displayRoles.map(r => {
-      const cls = r === 'owner' ? 'level owner-badge-lg' : r === 'admin' ? 'level admin-badge-lg' : 'level';
+      const cls = r === 'owner' ? 'level owner-badge-lg'
+                : r === 'admin' ? 'level admin-badge-lg'
+                : r === 'provider' ? 'level provider-badge-lg'
+                : 'level';
       return `<span class="session-badge ${cls}">${r}</span>`;
     }).join(' ');
 
@@ -1731,7 +1771,7 @@ function onCoachSelectChange() {
 }
 
 function openSessionForm(id = null) {
-  if (!_isAdmin) return;
+  if (!_isAdmin && !_isProvider) return;
   _editingId = id;
 
   const titleEl  = document.getElementById('form-title');
@@ -1812,6 +1852,14 @@ function openSessionForm(id = null) {
     updateCostPreview();
   }
 
+  // Hide admin-only fields when a provider (non-admin) creates a session
+  const adminOnlyFields = ['form-coach-field', 'form-coach-fee-field', 'form-series-field',
+                           'form-repeat-row', 'form-status-field', 'form-absorb-fee-field'];
+  adminOnlyFields.forEach(fid => {
+    const el = document.getElementById(fid);
+    if (el) el.style.display = _isAdmin ? '' : 'none';
+  });
+
   document.getElementById('session-form-overlay').classList.add('open');
 }
 
@@ -1859,25 +1907,27 @@ function closeSessionForm() {
 }
 
 async function submitSessionForm() {
-  if (!_isAdmin) return;
+  if (!_isAdmin && !_isProvider) return;
   const dateVal     = document.getElementById('form-date').value;
   const timeVal     = document.getElementById('form-time').value;
   const venueSelEl  = document.getElementById('form-venue-select');
   const venueId     = venueSelEl.value;
   const venueObj    = _allVenues.find(v => v.id === venueId);
   const venueVal    = venueObj?.name || '';
-  const coachSel    = document.getElementById('form-coach-select').value;
-  const coachUidVal = (coachSel && coachSel !== '__custom__') ? coachSel : '';
-  const coachVal    = coachSel === '__custom__'
-    ? document.getElementById('form-coach-custom').value.trim()
-    : (coachSel ? document.querySelector(`#form-coach-select option[value="${coachSel}"]`)?.textContent || '' : '');
+  const coachSel    = _isAdmin ? document.getElementById('form-coach-select').value : '';
+  const coachUidVal = _isAdmin && coachSel && coachSel !== '__custom__' ? coachSel : '';
+  const coachVal    = _isAdmin
+    ? (coachSel === '__custom__'
+        ? document.getElementById('form-coach-custom').value.trim()
+        : (coachSel ? document.querySelector(`#form-coach-select option[value="${coachSel}"]`)?.textContent || '' : ''))
+    : '';
   const levelVal    = document.getElementById('form-level').value;
   const descVal     = document.getElementById('form-description').value.trim();
   const maxVal      = parseInt(document.getElementById('form-max').value);
   const costVal     = parseFloat(document.getElementById('form-cost').value) || 0;
-  const coachFeeVal  = parseFloat(document.getElementById('form-coach-fee').value) ?? 50;
+  const coachFeeVal  = _isAdmin ? (parseFloat(document.getElementById('form-coach-fee').value) ?? 50) : 0;
   const deadlineVal  = document.getElementById('form-deadline').value;
-  const status       = document.getElementById('form-status').value;
+  const status       = _isAdmin ? document.getElementById('form-status').value : 'open';
   const typeVal      = document.getElementById('form-type').value;
   const genderVal    = document.getElementById('form-gender').value;
   const seriesSelEl  = document.getElementById('form-series-select');
@@ -1910,8 +1960,9 @@ async function submitSessionForm() {
     maxPlayers:           maxVal,
     cost:                 costVal,
     coachFee:             coachFeeVal,
-    absorbFee:            document.getElementById('form-absorb-fee').checked,
+    absorbFee:            _isAdmin ? document.getElementById('form-absorb-fee').checked : false,
     ...(insuranceEl && !_editingId ? { insuranceDeclaredBy: _currentUser.uid, insuranceDeclaredAt: firebase.firestore.FieldValue.serverTimestamp() } : {}),
+    ...(!_editingId && _isProvider && !_isAdmin ? { providerUid: _currentUser.uid } : {}),
     playerPrice:          document.getElementById('form-absorb-fee').checked ? costVal : _playerPrice(costVal),
     askPositions:         document.getElementById('form-ask-positions').checked,
     type:                 typeVal,
@@ -2649,6 +2700,7 @@ async function openEditProfile() {
       cb.checked = posSet.has(cb.value);
     });
     _updateCoachRequestBtn(data);
+    _updateProviderRequestBtn(data);
   } catch(e) {
     console.error('Load profile failed:', e);
   }
@@ -2709,6 +2761,38 @@ async function requestCoachStatus() {
   }
 }
 
+async function requestProviderStatus() {
+  if (!_currentUser) return;
+  const btn = document.getElementById('provider-request-btn');
+  if (btn) btn.disabled = true;
+  try {
+    await _userRef(_currentUser.uid).update({
+      providerRequest: true,
+      updatedAt:       firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    await callFn('notifyProviderRequest', { uid: _currentUser.uid, name: _currentUser.displayName || '' });
+    showToast('Provider request sent — an admin will review it.');
+    closeEditProfile();
+  } catch(e) {
+    console.error('Provider request failed:', e);
+    if (btn) btn.disabled = false;
+    showToast('Couldn\'t send request. Try again.', 'error');
+  }
+}
+
+async function startProviderOnboarding() {
+  const btn = document.getElementById('provider-stripe-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Opening…'; }
+  try {
+    const { url } = await callFn('providerOnboardingLink', { uid: _currentUser.uid });
+    window.location.href = url;
+  } catch(e) {
+    console.error('Provider onboarding failed:', e);
+    if (btn) { btn.disabled = false; btn.textContent = 'Set up payments →'; }
+    showToast('Couldn\'t start onboarding. Try again.', 'error');
+  }
+}
+
 function _updateCoachRequestBtn(data) {
   const field  = document.getElementById('coach-request-field');
   const btn    = document.getElementById('coach-request-btn');
@@ -2728,6 +2812,31 @@ function _updateCoachRequestBtn(data) {
     btn.textContent = 'Request coach status →';
     btn.disabled    = false;
     btn.className   = 'coach-request-btn';
+  }
+}
+
+function _updateProviderRequestBtn(data) {
+  const field     = document.getElementById('provider-request-field');
+  const stripeField = document.getElementById('provider-stripe-field');
+  const btn       = document.getElementById('provider-request-btn');
+  if (!field || !btn) return;
+  const isProvider   = (data.roles || []).includes('provider');
+  const isPending    = !!data.providerRequest && !isProvider;
+  const needsStripe  = isProvider && !data.providerOnboardingComplete;
+
+  field.style.display        = isProvider ? 'none' : '';
+  if (stripeField) stripeField.style.display = needsStripe ? '' : 'none';
+
+  if (!isProvider) {
+    if (isPending) {
+      btn.textContent = 'Provider request pending';
+      btn.disabled    = true;
+      btn.className   = 'coach-request-btn pending';
+    } else {
+      btn.textContent = 'Request session provider status →';
+      btn.disabled    = false;
+      btn.className   = 'coach-request-btn';
+    }
   }
 }
 

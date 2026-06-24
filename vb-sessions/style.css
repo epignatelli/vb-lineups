@@ -619,8 +619,9 @@ body {
               color: var(--muted); background: var(--surface2); border: 1px solid var(--border2);
               padding: 1px 5px; border-radius: 99px; margin-left: 4px; vertical-align: middle; }
 .user-flag.owner-badge { color: var(--amber); background: var(--amber-bg); border-color: rgba(245,166,35,.35); }
-.user-flag.coach-req   { color: var(--green); background: var(--green-bg); border-color: rgba(34,201,122,.35); }
-.user-flag.admin-req   { color: var(--purple); background: var(--purple-bg); border-color: rgba(167,139,250,.35); }
+.user-flag.coach-req    { color: var(--green);  background: var(--green-bg);  border-color: rgba(34,201,122,.35); }
+.user-flag.provider-req { color: var(--amber);  background: var(--amber-bg);  border-color: rgba(245,166,35,.35); }
+.user-flag.admin-req    { color: var(--purple); background: var(--purple-bg); border-color: rgba(167,139,250,.35); }
 
 .user-actions { display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
 
@@ -636,7 +637,8 @@ body {
 .role-toggle:disabled { opacity: .4; cursor: default; }
 .role-toggle.active.owner  { background: rgba(251,191,36,.18); border-color: rgba(251,191,36,.5);  color: #fbbf24; }
 .role-toggle.active.admin  { background: var(--amber-bg);      border-color: rgba(245,166,35,.35); color: var(--amber); }
-.role-toggle.active.coach  { background: var(--green-bg);      border-color: rgba(34,201,122,.35); color: var(--green); }
+.role-toggle.active.coach    { background: var(--green-bg);  border-color: rgba(34,201,122,.35); color: var(--green); }
+.role-toggle.active.provider { background: var(--amber-bg);  border-color: rgba(245,166,35,.35); color: var(--amber); }
 .role-toggle.active.player { background: var(--surface2);      border-color: var(--border2);       color: var(--muted); }
 .role-toggle.danger { color: var(--error); border-color: rgba(220,50,50,.3); }
 .role-toggle.danger:hover { background: rgba(220,50,50,.1); }
@@ -680,7 +682,8 @@ body {
 }
 .profile-role-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .session-badge.owner-badge-lg { background: rgba(251,191,36,.18); border: 1px solid rgba(251,191,36,.4); color: #fbbf24; }
-.session-badge.admin-badge-lg { background: var(--amber-bg); border: 1px solid rgba(245,166,35,.35); color: var(--amber); }
+.session-badge.admin-badge-lg    { background: var(--amber-bg);  border: 1px solid rgba(245,166,35,.35);  color: var(--amber); }
+.session-badge.provider-badge-lg { background: var(--green-bg);  border: 1px solid rgba(34,201,122,.35);  color: var(--green); }
 
 .profile-actions {
   display: flex; flex-direction: column; gap: 10px; margin-top: 4px;
