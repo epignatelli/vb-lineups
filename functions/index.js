@@ -8,6 +8,7 @@ const { defineSecret } = require('firebase-functions/params');
 const { initializeApp }            = require('firebase-admin/app');
 const { getAuth }                  = require('firebase-admin/auth');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const crypto = require('crypto');
 
 initializeApp();
 
@@ -1296,16 +1297,18 @@ exports.notifyCoachRequest = functions
 
     const db         = getFirestore();
     const adminsSnap = await db.collection('admins').get();
-    const appUrl     = 'https://epignatelli.github.io/apps/vb-sessions/#users';
 
     const safeName = (name || uid || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const { approveUrl, rejectUrl } = await _createRequestTokens(db, uid, 'coach');
+    const actionButtons = _requestActionButtons(approveUrl, rejectUrl);
+
     await Promise.all(adminsSnap.docs.map(doc =>
       sendEmail(doc.id,
         `Coach request from ${safeName}`,
         _emailHtml('Hi,', [
           `<strong>${safeName}</strong> has requested to be listed as a coach.`,
-          'Review and approve or reject the request from the Users screen.',
-        ], null, appUrl, 'Go to Users →')
+          'Use the buttons below to approve or reject, or go to the Users screen.',
+        ], null, null, null, actionButtons)
       )
     ));
 
@@ -1373,14 +1376,17 @@ exports.notifyProviderRequest = functions
     const appUrl     = 'https://epignatelli.github.io/apps/vb-sessions/#users';
 
     const safeName = (name || uid || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const { approveUrl, rejectUrl } = await _createRequestTokens(db, uid, 'provider');
+    const actionButtons = _requestActionButtons(approveUrl, rejectUrl);
+
     await Promise.all(adminsSnap.docs.map(doc =>
       sendEmail(doc.id,
-        `Session provider request from ${safeName}`,
+        `Host request from ${safeName}`,
         _emailHtml('Hi,', [
-          `<strong>${safeName}</strong> has requested to become a Session Provider.`,
-          'Providers can create and host their own sessions and will receive player payments directly via Stripe.',
-          'Review and approve or reject the request from the Users screen.',
-        ], null, appUrl, 'Go to Users →')
+          `<strong>${safeName}</strong> has requested to become a host.`,
+          'Hosts can create their own sessions and receive player payments via Stripe.',
+          'Use the buttons below to approve or reject, or go to the Users screen.',
+        ], null, null, null, actionButtons)
       )
     ));
 
@@ -1431,6 +1437,146 @@ exports.notifyHostRequestOutcome = functions
     }
 
     return res.json({ ok: true });
+  });
+
+// ── notifyCoachRequestOutcome ─────────────────────────────────────────────────
+exports.notifyCoachRequestOutcome = functions
+  .region(REGION)
+  .runWith({ secrets: [GMAIL_APP_PASSWORD] })
+  .https.onRequest(async (req, res) => {
+    setCors(res);
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    if (req.method !== 'POST')    return res.status(405).end();
+
+    try { await verifyAuth(req); }
+    catch (e) { return res.status(401).json({ error: e.message }); }
+
+    const { uid, approved } = req.body;
+    if (!uid) return res.status(400).json({ error: 'Missing uid.' });
+
+    const db       = getFirestore();
+    const userSnap = await db.collection('users').doc(uid).get();
+    const email    = userSnap.data()?.email;
+    const name     = userSnap.data()?.name || 'there';
+    const appUrl   = 'https://epignatelli.github.io/apps/vb-sessions/';
+
+    if (!email) return res.json({ ok: true });
+
+    if (approved) {
+      await sendEmail(email,
+        'Your coach request has been approved',
+        _emailHtml(`Hi ${name},`, [
+          'Great news — your request to become a coach on Roots has been approved.',
+          'Head to your profile for next steps.',
+        ], null, appUrl, 'Go to Roots →')
+      );
+    } else {
+      await sendEmail(email,
+        'Your coach request',
+        _emailHtml(`Hi ${name},`, [
+          'Thank you for your interest in coaching on Roots.',
+          'Unfortunately your request was not approved at this time.',
+          'If you have any questions, reply to this email and we\'ll be happy to help.',
+        ])
+      );
+    }
+
+    return res.json({ ok: true });
+  });
+
+// ── handleRequestAction ───────────────────────────────────────────────────────
+// GET endpoint — called from approve/reject links in admin notification emails.
+// No Firebase auth required; the token is the credential.
+exports.handleRequestAction = functions
+  .region(REGION)
+  .runWith({ secrets: [GMAIL_APP_PASSWORD] })
+  .https.onRequest(async (req, res) => {
+    if (req.method !== 'GET') return res.status(405).send('Method not allowed');
+
+    const token = req.query.token;
+    if (!token || !/^[0-9a-f]{64}$/.test(token)) {
+      return res.status(400).send(_actionHtml('Invalid link', 'This link is not valid.'));
+    }
+
+    const db       = getFirestore();
+    const tokenRef = db.collection('requestTokens').doc(token);
+    const tokenSnap = await tokenRef.get();
+
+    if (!tokenSnap.exists) {
+      return res.status(404).send(_actionHtml('Link not found', 'This link has already been used or doesn\'t exist.'));
+    }
+
+    const data = tokenSnap.data();
+
+    if (data.used) {
+      return res.status(409).send(_actionHtml('Already used', 'This link has already been used.'));
+    }
+
+    if (data.expiresAt.toDate() < new Date()) {
+      return res.status(410).send(_actionHtml('Link expired', 'This link expired 7 days after it was sent.'));
+    }
+
+    await tokenRef.update({ used: true, usedAt: FieldValue.serverTimestamp() });
+
+    const { uid, role, action } = data;
+    const userSnap = await db.collection('users').doc(uid).get();
+    if (!userSnap.exists) {
+      return res.status(404).send(_actionHtml('User not found', 'The user no longer exists.'));
+    }
+    const userData  = userSnap.data();
+    const userName  = userData.name  || 'Unknown';
+    const userEmail = userData.email;
+    const roleLabel = role === 'provider' ? 'host' : role;
+
+    if (action === 'approve') {
+      const roles = userData.roles || ['player'];
+      if (!roles.includes(role)) roles.push(role);
+      const update = { roles };
+      if (role === 'coach')    update.coachRequest    = false;
+      if (role === 'provider') update.providerRequest = false;
+      await db.collection('users').doc(uid).update(update);
+
+      if (userEmail) {
+        const subject = role === 'provider'
+          ? 'Your host request has been approved'
+          : 'Your coach request has been approved';
+        const body = role === 'provider'
+          ? ['Great news — your request to become a host on Roots has been approved.',
+             'Head to your profile to connect your bank account via Stripe and start hosting.']
+          : ['Great news — your request to become a coach on Roots has been approved.',
+             'Head to your profile for next steps.'];
+        await sendEmail(userEmail, subject,
+          _emailHtml(`Hi ${userName},`, body, null,
+            'https://epignatelli.github.io/apps/vb-sessions/', 'Go to Roots →'));
+      }
+
+      return res.send(_actionHtml(
+        `${userName} approved as ${roleLabel}`,
+        'The user has been notified by email.'
+      ));
+    } else {
+      const update = {};
+      if (role === 'coach')    update.coachRequest    = false;
+      if (role === 'provider') update.providerRequest = false;
+      await db.collection('users').doc(uid).update(update);
+
+      if (userEmail) {
+        const subject = role === 'provider' ? 'Your host request'  : 'Your coach request';
+        const body    = role === 'provider'
+          ? ['Thank you for your interest in hosting on Roots.',
+             'Unfortunately your request was not approved at this time.',
+             'If you have any questions, reply to this email and we\'ll be happy to help.']
+          : ['Thank you for your interest in coaching on Roots.',
+             'Unfortunately your request was not approved at this time.',
+             'If you have any questions, reply to this email and we\'ll be happy to help.'];
+        await sendEmail(userEmail, subject, _emailHtml(`Hi ${userName},`, body));
+      }
+
+      return res.send(_actionHtml(
+        `${userName}'s ${roleLabel} request rejected`,
+        'The user has been notified by email.'
+      ));
+    }
   });
 
 // ── providerOnboardingLink ────────────────────────────────────────────────────
@@ -1543,7 +1689,7 @@ function _calendarUrl(session) {
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&location=${loc}`;
 }
 
-function _emailHtml(greeting, paragraphs, calendarUrl = null, ctaUrl = null, ctaLabel = null) {
+function _emailHtml(greeting, paragraphs, calendarUrl = null, ctaUrl = null, ctaLabel = null, actionsHtml = '') {
   const body = paragraphs.map(p => `<p style="margin:0 0 12px">${p}</p>`).join('');
   const cal  = calendarUrl
     ? `<p style="margin:20px 0 0"><a href="${calendarUrl}" style="display:inline-block;padding:10px 18px;background:#f5a623;color:#0f1117;text-decoration:none;border-radius:8px;font-weight:700;font-size:13px">Add to Google Calendar →</a></p>`
@@ -1554,7 +1700,42 @@ function _emailHtml(greeting, paragraphs, calendarUrl = null, ctaUrl = null, cta
   const policyUrl = 'https://epignatelli.github.io/volleyball-teams-maker/vb-sessions/';
   return `<!DOCTYPE html><html><body style="font-family:sans-serif;color:#111;max-width:480px;margin:0 auto;padding:24px">
 <p style="margin:0 0 12px">${greeting}</p>
-${body}${cal}${cta}
+${body}${actionsHtml}${cal}${cta}
 <p style="margin:24px 0 0;font-size:12px;color:#888">Roots Volleyball · <a href="${policyUrl}" style="color:#888">Terms &amp; cancellation policy</a></p>
+</body></html>`;
+}
+
+// Generate two single-use approve/reject tokens and store them in Firestore.
+async function _createRequestTokens(db, uid, role) {
+  const approveToken = crypto.randomBytes(32).toString('hex');
+  const rejectToken  = crypto.randomBytes(32).toString('hex');
+  const expiresAt    = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const base         = { uid, role, expiresAt, used: false };
+  await Promise.all([
+    db.collection('requestTokens').doc(approveToken).set({ ...base, action: 'approve' }),
+    db.collection('requestTokens').doc(rejectToken).set({ ...base, action: 'reject' }),
+  ]);
+  const fnBase = 'https://europe-west2-roots-kqotc.cloudfunctions.net/handleRequestAction';
+  return {
+    approveUrl: `${fnBase}?token=${approveToken}`,
+    rejectUrl:  `${fnBase}?token=${rejectToken}`,
+  };
+}
+
+function _requestActionButtons(approveUrl, rejectUrl) {
+  const a = (url, label, bg) =>
+    `<a href="${url}" style="display:inline-block;padding:10px 20px;background:${bg};color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:13px">${label}</a>`;
+  return `<div style="margin:20px 0;display:flex;gap:12px">
+  ${a(approveUrl, 'Approve →', '#16a34a')}
+  ${a(rejectUrl,  'Reject →',  '#dc2626')}
+</div>`;
+}
+
+function _actionHtml(title, message) {
+  const adminUrl = 'https://epignatelli.github.io/apps/vb-sessions/#users';
+  return `<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:480px;margin:60px auto;padding:24px;color:#111">
+<h2 style="margin:0 0 12px">${title}</h2>
+<p style="margin:0 0 24px;color:#555">${message}</p>
+<p><a href="${adminUrl}" style="color:#4f46e5">Go to admin panel →</a></p>
 </body></html>`;
 }

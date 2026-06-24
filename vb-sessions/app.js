@@ -1446,6 +1446,12 @@ async function rejectAdmin(uid) {
   } catch(e) { showToast('Couldn\'t reject. Try again.', 'error'); }
 }
 
+function _refreshAfterRoleAction(uid) {
+  const activeId = document.querySelector('.screen.active')?.id;
+  if (activeId === 'screen-profile') openProfileScreen(uid);
+  else renderUsers();
+}
+
 async function approveCoach(uid, displayName) {
   if (!_isAdmin) return;
   const label = displayName || uid;
@@ -1455,8 +1461,9 @@ async function approveCoach(uid, displayName) {
     const roles = doc.data()?.roles || ['player'];
     if (!roles.includes('coach')) roles.push('coach');
     await _userRef(uid).update({ roles, coachRequest: false });
+    callFn('notifyCoachRequestOutcome', { uid, approved: true }).catch(console.error);
     showToast('Coach approved.');
-    renderUsers();
+    _refreshAfterRoleAction(uid);
   } catch(e) { showToast('Couldn\'t approve. Try again.', 'error'); }
 }
 
@@ -1465,8 +1472,9 @@ async function rejectCoach(uid) {
   if (!confirm('Reject this coach request?')) return;
   try {
     await _userRef(uid).update({ coachRequest: false });
+    callFn('notifyCoachRequestOutcome', { uid, approved: false }).catch(console.error);
     showToast('Coach request rejected.');
-    renderUsers();
+    _refreshAfterRoleAction(uid);
   } catch(e) { showToast('Couldn\'t reject. Try again.', 'error'); }
 }
 
@@ -1481,7 +1489,7 @@ async function approveProvider(uid, displayName) {
     await _userRef(uid).update({ roles, providerRequest: false });
     callFn('notifyHostRequestOutcome', { uid, approved: true }).catch(console.error);
     showToast('Host approved.');
-    renderUsers();
+    _refreshAfterRoleAction(uid);
   } catch(e) { showToast('Couldn\'t approve. Try again.', 'error'); }
 }
 
@@ -1492,7 +1500,7 @@ async function rejectProvider(uid) {
     await _userRef(uid).update({ providerRequest: false });
     callFn('notifyHostRequestOutcome', { uid, approved: false }).catch(console.error);
     showToast('Host request rejected.');
-    renderUsers();
+    _refreshAfterRoleAction(uid);
   } catch(e) { showToast('Couldn\'t reject. Try again.', 'error'); }
 }
 
@@ -1591,6 +1599,31 @@ async function openProfileScreen(uid) {
       <div class="profile-actions">
         <button class="cta-btn secondary-btn" onclick="openEditProfile()">Edit profile →</button>
         <button class="cta-btn secondary-btn" onclick="handleAuthClick()">Sign out</button>
+      </div>` : '';
+
+    const safeUid  = esc(targetUid);
+    const safeName = esc(u.name || '');
+    const adminSection = _isAdmin && !isOwn && (hasPendingCoach || hasPendingProvider) ? `
+      <div class="detail-section">
+        <div class="detail-section-title">Pending requests</div>
+        <div class="role-status-list">
+          ${hasPendingCoach ? `
+            <div class="role-status-row">
+              <span class="role-status-name">Coach</span>
+              <div class="role-action-btns">
+                <button class="role-action-approve" onclick="approveCoach('${safeUid}','${safeName}')">Approve</button>
+                <button class="role-action-reject" onclick="rejectCoach('${safeUid}')">Reject</button>
+              </div>
+            </div>` : ''}
+          ${hasPendingProvider ? `
+            <div class="role-status-row">
+              <span class="role-status-name">Host</span>
+              <div class="role-action-btns">
+                <button class="role-action-approve" onclick="approveProvider('${safeUid}','${safeName}')">Approve</button>
+                <button class="role-action-reject" onclick="rejectProvider('${safeUid}')">Reject</button>
+              </div>
+            </div>` : ''}
+        </div>
       </div>` : '';
 
     const showHistory = isOwn || _isAdmin;
@@ -1720,6 +1753,7 @@ async function openProfileScreen(uid) {
         </div>
         ${metaRows ? `<div class="detail-section"><div class="detail-meta-grid">${metaRows}</div></div>` : ''}
         ${rolesSection}
+        ${adminSection}
         ${ownActions}
         ${coachPaySection}
         ${seriesPassSection}

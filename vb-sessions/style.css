@@ -710,6 +710,17 @@ body {
 .role-status-btn:hover { border-color: var(--amber); color: var(--amber); }
 .role-status-btn:disabled { opacity: .5; cursor: default; }
 
+.role-action-btns { display: flex; gap: 8px; }
+.role-action-approve, .role-action-reject {
+  border: none; font-family: inherit;
+  font-size: 13px; font-weight: 700; letter-spacing: .03em;
+  padding: 5px 12px; border-radius: var(--radius-sm); cursor: pointer;
+  transition: opacity 120ms;
+}
+.role-action-approve { background: #16a34a; color: #fff; }
+.role-action-reject  { background: #dc2626; color: #fff; }
+.role-action-approve:hover, .role-action-reject:hover { opacity: .82; }
+
 .profile-actions {
   display: flex; flex-direction: column; gap: 10px;
 }
