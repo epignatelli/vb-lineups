@@ -160,32 +160,70 @@ body {
 .icon-btn.danger:hover { color: var(--red); border-color: var(--red); }
 .icon-btn.small { width: 22px; height: 22px; font-size: 11px; }
 
-/* ─── Home / session list ────────────────────────────────────────────────── */
-.home-filters {
-  display: flex; gap: 8px;
-  padding: 10px 16px 8px;
-  overflow-x: auto; -webkit-overflow-scrolling: touch;
-  scrollbar-width: none; border-bottom: 1px solid var(--border);
+/* ─── Filter button ──────────────────────────────────────────────────────── */
+.filter-icon-btn {
+  background: none; border: 1px solid var(--border2);
+  color: var(--muted); font-size: 16px;
+  width: 34px; height: 34px; border-radius: var(--radius-sm);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  position: relative; transition: border-color 120ms, color 120ms;
   flex-shrink: 0;
 }
-.home-filters::-webkit-scrollbar { display: none; }
+.filter-icon-btn:hover { border-color: var(--amber); color: var(--amber); }
+.filter-icon-btn.has-filters { border-color: var(--amber); color: var(--amber); }
+.filter-icon-btn.has-filters::after {
+  content: attr(data-count);
+  position: absolute; top: -5px; right: -5px;
+  background: var(--amber); color: #0f1117;
+  font-size: 10px; font-weight: 800;
+  min-width: 16px; height: 16px; border-radius: 99px;
+  display: flex; align-items: center; justify-content: center; padding: 0 3px;
+}
+
+/* ─── Filter sheet ───────────────────────────────────────────────────────── */
+.filter-sheet-backdrop {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200;
+}
+.filter-sheet-backdrop.open { display: block; }
+.filter-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 201;
+  background: var(--surface); border-radius: 18px 18px 0 0;
+  padding: 0 0 env(safe-area-inset-bottom);
+  transform: translateY(100%); transition: transform 260ms cubic-bezier(.32,1,.6,1);
+  max-height: 80dvh; overflow-y: auto;
+}
+.filter-sheet.open { transform: translateY(0); }
+.filter-sheet-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px 12px; border-bottom: 1px solid var(--border);
+}
+.filter-sheet-title {
+  font-size: 15px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+}
+.filter-sheet-body { padding: 20px; display: flex; flex-direction: column; gap: 24px; }
+.filter-section-label {
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 12px;
+}
+.filter-pills { display: flex; flex-wrap: wrap; gap: 8px; }
 .level-pill {
-  flex-shrink: 0;
   background: none; border: 1px solid var(--border2);
   color: var(--muted); font-family: var(--sport);
   font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
-  padding: 5px 12px; border-radius: 99px; cursor: pointer;
+  padding: 6px 14px; border-radius: 99px; cursor: pointer;
   transition: border-color 120ms, color 120ms, background 120ms;
 }
-.level-pill.active {
-  background: var(--amber); border-color: var(--amber);
-  color: #0f1117;
-}
+.level-pill.active { background: var(--amber); border-color: var(--amber); color: #0f1117; }
 .level-pill:not(.active):hover { border-color: var(--amber); color: var(--amber); }
+.filter-sheet-footer {
+  display: flex; gap: 10px; padding: 12px 20px 20px;
+  border-top: 1px solid var(--border);
+}
+.filter-sheet-footer .cta-btn { flex: 1; }
 
+/* ─── Home / session list ────────────────────────────────────────────────── */
 .filter-active-label {
-  font-size: 12px; color: var(--muted); letter-spacing: .03em;
-  padding: 2px 0 8px;
+  font-size: 12px; color: var(--muted); letter-spacing: .03em; padding-bottom: 8px;
 }
 .filter-active-label strong { color: var(--amber); font-weight: 700; }
 

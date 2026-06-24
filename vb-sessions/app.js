@@ -205,6 +205,8 @@ function _setNav(mode, activeTab) {
   document.querySelectorAll('.nav-tab').forEach(t =>
     t.classList.toggle('active', !!activeTab && t.dataset.tab === activeTab)
   );
+  const filterBtn = document.getElementById('filter-icon-btn');
+  if (filterBtn) filterBtn.style.display = activeTab === 'home' ? '' : 'none';
 }
 
 function _setTitle(title) {
@@ -404,12 +406,35 @@ async function _routeFromHash() {
   else { renderHome(); }
 }
 
+function openFilterSheet() {
+  document.getElementById('filter-sheet').classList.add('open');
+  document.getElementById('filter-sheet-backdrop').classList.add('open');
+}
+
+function closeFilterSheet() {
+  document.getElementById('filter-sheet').classList.remove('open');
+  document.getElementById('filter-sheet-backdrop').classList.remove('open');
+}
+
+function clearAllFilters() {
+  setLevelFilter('');
+}
+
 function setLevelFilter(level) {
   _activeLevelFilter = level || null;
   document.querySelectorAll('.level-pill').forEach(btn => {
     btn.classList.toggle('active', (btn.dataset.level || '') === (level || ''));
   });
+  _updateFilterBadge();
   renderHome();
+}
+
+function _updateFilterBadge() {
+  const btn = document.getElementById('filter-icon-btn');
+  if (!btn) return;
+  const count = (_activeLevelFilter ? 1 : 0); // add more filter counts here as filters are added
+  btn.classList.toggle('has-filters', count > 0);
+  btn.dataset.count = count > 0 ? count : '';
 }
 
 function goHome() {
