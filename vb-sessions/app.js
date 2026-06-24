@@ -363,7 +363,10 @@ async function _routeFromHash() {
     } else if (_currentRoles.length > 0) {
       // User doc already loaded — route immediately
       if (_isProvider) _showProviderSessions(_currentUser.uid);
-      else openProfileScreen();
+      else {
+        history.replaceState(null, '', '#home'); // don't leave #provider in back-stack
+        openProfileScreen();
+      }
     } else {
       // User doc not yet loaded (page-load race) — let the first snapshot handle it
       _pendingProviderRequest = true;
@@ -1506,16 +1509,11 @@ async function openProfileScreen(uid) {
   const targetUid = uid || (_currentUser && _currentUser.uid);
   if (!targetUid) return;
 
-  const fromHash = location.hash.replace(/^#/, '') || 'home';
-
   _setHash('profile/' + targetUid);
   showScreen('profile');
   _setNav('sub', null);
   _setTitle('Profile');
-  _setBack(async () => {
-    history.pushState(null, '', '#' + fromHash);
-    await _routeFromHash();
-  });
+  _setBack(() => history.back());
 
   const body = document.getElementById('profile-screen-body');
   body.innerHTML = '<div class="home-empty">Loading…</div>';
