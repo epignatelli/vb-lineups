@@ -1387,6 +1387,52 @@ exports.notifyProviderRequest = functions
     return res.json({ ok: true });
   });
 
+// ── notifyHostRequestOutcome ──────────────────────────────────────────────────
+exports.notifyHostRequestOutcome = functions
+  .region(REGION)
+  .runWith({ secrets: [GMAIL_APP_PASSWORD] })
+  .https.onRequest(async (req, res) => {
+    setCors(res);
+    if (req.method === 'OPTIONS') return res.status(204).end();
+    if (req.method !== 'POST')    return res.status(405).end();
+
+    try { await verifyAuth(req); }
+    catch (e) { return res.status(401).json({ error: e.message }); }
+
+    const { uid, approved } = req.body;
+    if (!uid) return res.status(400).json({ error: 'Missing uid.' });
+
+    const db       = getFirestore();
+    const userSnap = await db.collection('users').doc(uid).get();
+    const email    = userSnap.data()?.email;
+    const name     = userSnap.data()?.name || 'there';
+    const appUrl   = 'https://epignatelli.github.io/apps/vb-sessions/';
+
+    if (!email) return res.json({ ok: true });
+
+    if (approved) {
+      await sendEmail(email,
+        'Your host request has been approved',
+        _emailHtml(`Hi ${name},`, [
+          'Great news — your request to become a host on Roots has been approved.',
+          'You can now create sessions and receive payments from players directly.',
+          'Head to your profile to connect your bank account via Stripe and start hosting.',
+        ], null, appUrl, 'Go to Roots →')
+      );
+    } else {
+      await sendEmail(email,
+        'Your host request',
+        _emailHtml(`Hi ${name},`, [
+          'Thank you for your interest in hosting on Roots.',
+          'Unfortunately your request was not approved at this time.',
+          'If you have any questions, reply to this email and we\'ll be happy to help.',
+        ])
+      );
+    }
+
+    return res.json({ ok: true });
+  });
+
 // ── providerOnboardingLink ────────────────────────────────────────────────────
 exports.providerOnboardingLink = functions
   .region(REGION)

@@ -1479,6 +1479,7 @@ async function approveProvider(uid, displayName) {
     const roles = doc.data()?.roles || ['player'];
     if (!roles.includes('provider')) roles.push('provider');
     await _userRef(uid).update({ roles, providerRequest: false });
+    callFn('notifyHostRequestOutcome', { uid, approved: true }).catch(console.error);
     showToast('Host approved.');
     renderUsers();
   } catch(e) { showToast('Couldn\'t approve. Try again.', 'error'); }
@@ -1489,6 +1490,7 @@ async function rejectProvider(uid) {
   if (!confirm('Reject this host request?')) return;
   try {
     await _userRef(uid).update({ providerRequest: false });
+    callFn('notifyHostRequestOutcome', { uid, approved: false }).catch(console.error);
     showToast('Host request rejected.');
     renderUsers();
   } catch(e) { showToast('Couldn\'t reject. Try again.', 'error'); }
