@@ -188,8 +188,8 @@ body {
   transform: translateX(-50%);
   background: #1a1d26; border: 1px solid rgba(255,255,255,.1);
   border-radius: 14px;
-  padding: 12px 14px; display: none;
-  flex-wrap: wrap; gap: 7px; min-width: 180px;
+  padding: 6px; display: none;
+  flex-direction: column; min-width: 160px;
   box-shadow: 0 -4px 32px rgba(0,0,0,.6);
   z-index: 120;
 }
@@ -197,16 +197,17 @@ body {
 .fbar-item:first-child .fbar-pop { left: 0; transform: none; }
 .fbar-item:last-child  .fbar-pop { left: auto; right: 0; transform: none; }
 .fpop-opt {
-  flex-shrink: 0;
-  background: rgba(255,255,255,.06); border: none;
+  background: none; border: none;
   color: var(--muted); font-family: var(--sport);
-  font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
-  padding: 5px 12px; border-radius: 99px; cursor: pointer;
-  transition: background 120ms, color 120ms;
+  font-size: 13px; font-weight: 600; letter-spacing: .02em;
+  padding: 10px 14px; border-radius: 10px; cursor: pointer;
+  text-align: left;
+  transition: background 100ms, color 100ms;
   white-space: nowrap;
 }
-.fpop-opt.active { background: var(--amber); color: #0f1117; }
-.fpop-opt:not(.active):hover { background: rgba(255,255,255,.12); color: var(--text); }
+.fpop-opt.active { color: var(--text); background: rgba(255,255,255,.08); }
+.fpop-opt.active::before { content: '✓ '; color: var(--amber); font-size: 11px; }
+.fpop-opt:not(.active):hover { background: rgba(255,255,255,.06); color: var(--text); }
 
 /* ─── Home / session list ────────────────────────────────────────────────── */
 .filter-active-label {
