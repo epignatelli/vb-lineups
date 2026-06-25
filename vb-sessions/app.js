@@ -1564,7 +1564,7 @@ async function nominateForAdmin(uid) {
   if (!confirm(`Nominate ${label} for Admin? An owner will be asked to approve.`)) return;
   try {
     await _userRef(uid).update({ adminRequest: true });
-    await callFn('notifyAdminRequest', { uid, name: displayName });
+    await callFn('notifyAdminRequest', { uid, name: label });
     showToast('Nomination sent — owners have been notified.');
     renderUsers();
   } catch(e) {

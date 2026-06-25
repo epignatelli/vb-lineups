@@ -124,8 +124,8 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      // Full user docs are private — only readable by the user themselves or admins.
-      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      // Full user docs are private — only readable by the user themselves, admins, or owners.
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin() || isOwner());
       allow create: if request.auth != null && request.auth.uid == uid;
       // Owners can update any field (including roles)
       allow update: if request.auth != null && isOwner();
