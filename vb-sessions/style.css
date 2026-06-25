@@ -193,7 +193,7 @@ body {
   background: none; border: none; border-bottom: 2px solid transparent;
   color: var(--muted); font-family: var(--sport);
   font-size: 13px; font-weight: 600; letter-spacing: .02em;
-  padding: 14px 8px 12px;
+  padding: 8px 8px 6px;
   cursor: pointer; transition: color 150ms, border-color 150ms;
   white-space: nowrap; overflow: hidden;
 }
