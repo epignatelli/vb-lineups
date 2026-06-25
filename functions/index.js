@@ -8,6 +8,7 @@ const { defineSecret } = require('firebase-functions/params');
 const { initializeApp }            = require('firebase-admin/app');
 const { getAuth }                  = require('firebase-admin/auth');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getMessaging }             = require('firebase-admin/messaging');
 const crypto = require('crypto');
 
 initializeApp();
@@ -100,6 +101,30 @@ async function sendEmail(to, subject, html) {
   }
 }
 
+async function _sendPush(db, uid, title, body) {
+  try {
+    const snap  = await db.collection('users').doc(uid).get();
+    const token = snap.data()?.fcmToken;
+    if (!token) return;
+    await getMessaging().send({
+      token,
+      notification: { title, body },
+      webpush: {
+        notification: {
+          icon: `${APP_URL}icons/icon-192.png`,
+          badge: `${APP_URL}icons/icon-72.png`,
+        },
+      },
+    });
+  } catch (e) {
+    console.error('_sendPush failed uid=%s: %s', uid, e.message);
+    if (e.code === 'messaging/registration-token-not-registered' ||
+        e.code === 'messaging/invalid-registration-token') {
+      await db.collection('users').doc(uid).update({ fcmToken: FieldValue.delete() }).catch(() => {});
+    }
+  }
+}
+
 async function _notifyWaitingList(db, sessionId, session) {
   const wlSnap = await db.collection('sessions').doc(sessionId)
     .collection('waitingList').get();
@@ -111,13 +136,19 @@ async function _notifyWaitingList(db, sessionId, session) {
   await Promise.all(wlSnap.docs.map(doc => {
     const a = doc.data();
     if (!a.email) return;
-    return sendEmail(a.email,
-      `Spot available — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
-      _emailHtml(`Hi ${a.name || 'there'},`, [
-        `A spot has opened up for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''}.`,
-        `Open the app to claim it — first come, first served.`,
-      ], calUrl)
-    );
+    const uid   = doc.id;
+    const title = `Spot available — ${venue}`;
+    const body  = dateStr ? `${dateStr} · Open the app to claim it` : 'Open the app to claim it';
+    return Promise.all([
+      sendEmail(a.email,
+        `Spot available — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+        _emailHtml(`Hi ${a.name || 'there'},`, [
+          `A spot has opened up for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''}.`,
+          `Open the app to claim it — first come, first served.`,
+        ], calUrl)
+      ),
+      _sendPush(db, uid, title, body),
+    ]);
   }));
 }
 
@@ -789,18 +820,23 @@ exports.onSessionCancelled = onDocumentUpdated({
     .collection('attendees').get();
 
   await Promise.all(attendees.docs.map(doc => {
-    const a = doc.data();
+    const a   = doc.data();
+    const uid = doc.id;
     if (!a.email) return;
-    return sendEmail(a.email,
-      `Session cancelled — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
-      _emailHtml(`Hi ${a.name || 'there'},`, [
-        `Unfortunately <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''} has been cancelled.`,
-        a.paid && a.refundAmountPence > 0
-          ? `A refund of <strong>£${(a.refundAmountPence / 100).toFixed(2)}</strong> will be processed automatically.`
-          : '',
-        `Apologies for the inconvenience.`,
-      ].filter(Boolean))
-    );
+    const pushBody = dateStr ? `${dateStr} has been cancelled` : 'Session cancelled';
+    return Promise.all([
+      sendEmail(a.email,
+        `Session cancelled — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+        _emailHtml(`Hi ${a.name || 'there'},`, [
+          `Unfortunately <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''} has been cancelled.`,
+          a.paid && a.refundAmountPence > 0
+            ? `A refund of <strong>£${(a.refundAmountPence / 100).toFixed(2)}</strong> will be processed automatically.`
+            : '',
+          `Apologies for the inconvenience.`,
+        ].filter(Boolean))
+      ),
+      _sendPush(db, uid, `${venue} cancelled`, pushBody),
+    ]);
   }));
 
   // Also notify waiting list that the session is gone
@@ -899,13 +935,16 @@ exports.removeAttendeeAdmin = functions
 
     const venue   = session.venue || 'the session';
     const dateStr = _formatDate(session.date);
-    await sendEmail(attendee.email,
-      `Registration removed — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
-      _emailHtml(`Hi ${attendee.name || 'there'},`, [
-        `Your registration for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''} has been removed by an admin.`,
-        `If you have any questions, please contact the organiser.`,
-      ])
-    );
+    await Promise.all([
+      sendEmail(attendee.email,
+        `Registration removed — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+        _emailHtml(`Hi ${attendee.name || 'there'},`, [
+          `Your registration for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''} has been removed by an admin.`,
+          `If you have any questions, please contact the organiser.`,
+        ])
+      ),
+      _sendPush(db, uid, 'Registration removed', `${venue}${dateStr ? ` · ${dateStr}` : ''}`),
+    ]);
 
     await _notifyWaitingList(db, sessionId, session);
 

@@ -16,6 +16,8 @@ const SESSION_GENDERS = [
 
 const PHOTO_CONSENT_VERSION = '1.0';
 const TERMS_VERSION         = '1.0';
+// Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
+const VAPID_KEY = null; // TODO: paste your VAPID public key here
 
 // ─── State ─────────────────────────────────────────────────────────────────────
 let _currentUser  = null;
@@ -144,6 +146,21 @@ async function _upsertUserDoc(user) {
     }
     return doc.data()?.termsAccepted;
   } catch(e) { console.error('Upsert user doc failed:', e); }
+}
+
+async function _initMessaging(user) {
+  if (!VAPID_KEY) return;
+  try {
+    if (Notification.permission === 'denied') return;
+    const messaging = firebase.messaging();
+    const token = await messaging.getToken({ vapidKey: VAPID_KEY });
+    if (token) {
+      await _userRef(user.uid).update({ fcmToken: token });
+    }
+  } catch (e) {
+    // User declined or browser doesn't support it — not an error
+    console.log('Push notifications not available:', e.message);
+  }
 }
 
 async function _maybeShowOnboarding(user) {
@@ -293,6 +310,7 @@ getAuth().onAuthStateChanged(async user => {
       _showTermsModal();
     }
     _subscribeToUserDoc(user);
+    _initMessaging(user);
     _maybeShowOnboarding(user);
 
     if (_pendingJoinSessionId) {
@@ -4188,4 +4206,7 @@ async function _populateSeriesSelect(selectedId) {
 // ─── Service worker ────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(console.error);
+  if (VAPID_KEY) {
+    navigator.serviceWorker.register('./firebase-messaging-sw.js').catch(console.error);
+  }
 }
