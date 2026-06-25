@@ -3,7 +3,6 @@
 button, input, select, textarea { touch-action: manipulation; font-family: inherit; }
 
 :root {
-  --footer-h: 30px;
   --bg:        #0f1117;
   --surface:   #1a1d27;
   --surface2:  #22263a;
@@ -161,12 +160,26 @@ body {
 .icon-btn.danger:hover { color: var(--red); border-color: var(--red); }
 .icon-btn.small { width: 22px; height: 22px; font-size: 11px; }
 
-/* ─── Persistent footer (bottom) ────────────────────────────────────────── */
-.roots-footer {
+/* ─── Bottom chrome wrapper ──────────────────────────────────────────────── */
+.bottom-chrome {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 95;
-  height: calc(var(--footer-h) + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column;
+}
+
+/* ─── Filter bar (top of chrome, shown on home only) ─────────────────────── */
+.fbar {
+  display: flex;
+  background: rgba(15,17,23,.88);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255,255,255,.07);
+  padding: 0 8px;
+}
+
+/* ─── Footer (bottom of chrome, always visible) ──────────────────────────── */
+.roots-footer {
   display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 0 16px;
+  padding: 6px 16px;
+  padding-bottom: max(6px, env(safe-area-inset-bottom));
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
@@ -174,16 +187,6 @@ body {
 .roots-footer-link:hover { color: var(--text); }
 .roots-footer-link.dim { opacity: .35; cursor: default; }
 .roots-footer-dot { color: var(--border2); font-size: 9px; }
-
-/* ─── Filter bar (above footer) ─────────────────────────────────────────── */
-.fbar {
-  position: fixed; left: 0; right: 0; z-index: 110;
-  bottom: calc(var(--footer-h) + env(safe-area-inset-bottom));
-  display: flex;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  padding: 0 8px;
-}
 .fbar-item { position: relative; flex: 1; }
 .fbar-btn {
   width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;

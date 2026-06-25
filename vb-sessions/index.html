@@ -612,17 +612,9 @@
 </script>
 <script src="./app.js"></script>
 
-<!-- ── Persistent footer ────────────────────────────────────────────────── -->
-<footer id="app-footer" class="roots-footer">
-  <a class="roots-footer-link" href="../">Roots</a>
-  <span class="roots-footer-dot">·</span>
-  <span class="roots-footer-link dim">About</span>
-  <span class="roots-footer-dot">·</span>
-  <a class="roots-footer-link" href="../policy/">Policy</a>
-</footer>
-
-<!-- ── Filter bar (fixed above footer, home screen only) ────────────────── -->
-<div class="fbar" id="filter-bar" style="display:none">
+<!-- ── Bottom chrome: filter bar (top) + footer (bottom) ───────────────── -->
+<div class="bottom-chrome">
+  <div class="fbar" id="filter-bar" style="display:none">
   <div class="fbar-item">
     <div class="fbar-pop" id="fpop-host">
       <!-- populated by _loadHostFilterPills() -->
@@ -655,6 +647,14 @@
       <span id="flabel-gender">Gender</span><span class="fbar-caret">▾</span>
     </button>
   </div>
+</div>
+  <footer id="app-footer" class="roots-footer">
+    <a class="roots-footer-link" href="../">Roots</a>
+    <span class="roots-footer-dot">·</span>
+    <span class="roots-footer-link dim">About</span>
+    <span class="roots-footer-dot">·</span>
+    <a class="roots-footer-link" href="../policy/">Policy</a>
+  </footer>
 </div>
 </body>
 </html>
