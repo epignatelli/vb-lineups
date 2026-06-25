@@ -210,10 +210,13 @@ async function handleAuthClick() {
 let _backFn              = null;
 let _pendingCoachRequest    = false;
 let _pendingProviderRequest = false;
-let _activeSeriesFilter     = null; // { id, name } or null
-let _activeProviderFilter   = null; // uid or null
-let _activeLevelFilter      = new Set(); // set of level strings
-let _activeGenderFilter     = new Set(); // set of gender strings
+let _activeSeriesFilter     = null;        // { id, name } or null
+let _activeProviderFilter   = null;        // uid or null
+let _activeLevelFilter      = new Set();   // set of level strings
+let _activeGenderFilter     = new Set();   // set of gender strings
+let _activeTypeFilter       = new Set();   // set of type strings
+let _activeStatusFilter     = 'open';      // '' | 'open' | 'closed' — default: open only
+let _activeDateFilter       = '';          // '' | 'today' | 'week' | 'month'
 let _activeSeries        = null; // full series doc data when in filtered mode
 let _activeSeriesReg     = null; // user's paid registration for _activeSeries, or null
 let _activeSeriesMembers = []; // paid registrations for current series (admin view)
@@ -485,6 +488,19 @@ function _syncFilterPillsToState() {
   _updateFbarBtn('level',  _activeLevelFilter.size,  _setLabel(_activeLevelFilter,  'Level',  _LEVEL_LABELS));
   _updateFbarBtn('gender', _activeGenderFilter.size, _setLabel(_activeGenderFilter, 'Gender', _GENDER_LABELS));
   _updateFbarBtn('host',   _activeProviderFilter, _activeProviderFilter ? 'Host ✓' : 'Host');
+  _updateFbarBtn('type',   _activeTypeFilter.size,   _setLabel(_activeTypeFilter, 'Type', _TYPE_LABELS));
+  _updateFbarBtn('status', _activeStatusFilter !== '', _STATUS_LABELS[_activeStatusFilter] || 'Status');
+  _updateFbarBtn('date',   !!_activeDateFilter, _DATE_LABELS[_activeDateFilter] || 'Date');
+  document.querySelectorAll('#fpop-type .fpop-opt').forEach(b => {
+    const v = b.dataset.type || '';
+    b.classList.toggle('active', v === '' ? !_activeTypeFilter.size : _activeTypeFilter.has(v));
+  });
+  document.querySelectorAll('#fpop-status .fpop-opt').forEach(b =>
+    b.classList.toggle('active', (b.dataset.status || '') === (_activeStatusFilter || ''))
+  );
+  document.querySelectorAll('#fpop-date .fpop-opt').forEach(b =>
+    b.classList.toggle('active', (b.dataset.date || '') === (_activeDateFilter || ''))
+  );
 }
 
 function setHostFilter(uid, name) {
@@ -527,6 +543,47 @@ function setGenderFilter(gender) {
   renderHome();
 }
 
+const _TYPE_LABELS = { game: 'Game', league: 'League', clinic: 'Clinic', kqotc: 'KQOTC', tournament: 'Tournament', tryout: 'Tryout', training: 'Training' };
+const _STATUS_LABELS = { open: 'Open', closed: 'Closed' };
+const _DATE_LABELS   = { today: 'Today', week: 'This week', month: 'This month' };
+
+function setTypeFilter(type) {
+  if (!type) {
+    _activeTypeFilter.clear();
+  } else {
+    if (_activeTypeFilter.has(type)) _activeTypeFilter.delete(type);
+    else _activeTypeFilter.add(type);
+  }
+  document.querySelectorAll('#fpop-type .fpop-opt').forEach(b => {
+    const v = b.dataset.type || '';
+    b.classList.toggle('active', v === '' ? !_activeTypeFilter.size : _activeTypeFilter.has(v));
+  });
+  _updateFbarBtn('type', _activeTypeFilter.size, _setLabel(_activeTypeFilter, 'Type', _TYPE_LABELS));
+  renderHome();
+}
+
+function setStatusFilter(status) {
+  _activeStatusFilter = status;
+  document.querySelectorAll('#fpop-status .fpop-opt').forEach(b =>
+    b.classList.toggle('active', (b.dataset.status || '') === (status || ''))
+  );
+  const label = _STATUS_LABELS[status] || 'Status';
+  _updateFbarBtn('status', status !== '', label);
+  _closePopovers();
+  renderHome();
+}
+
+function setDateFilter(date) {
+  _activeDateFilter = date;
+  document.querySelectorAll('#fpop-date .fpop-opt').forEach(b =>
+    b.classList.toggle('active', (b.dataset.date || '') === (date || ''))
+  );
+  const label = _DATE_LABELS[date] || 'Date';
+  _updateFbarBtn('date', !!date, label);
+  _closePopovers();
+  renderHome();
+}
+
 async function _loadHostFilterPills() {
   const container = document.getElementById('fpop-host');
   if (!container) return;
@@ -554,6 +611,9 @@ function goHome() {
   _activeProviderFilter = null;
   _activeLevelFilter.clear();
   _activeGenderFilter.clear();
+  _activeTypeFilter.clear();
+  _activeStatusFilter = 'open';
+  _activeDateFilter   = '';
   _setHash('home');
   showScreen('home');
   _setNav('primary', 'home');
@@ -712,6 +772,25 @@ async function renderHome() {
     }
     if (_activeGenderFilter.size) {
       sessions = sessions.filter(s => _activeGenderFilter.has(s.gender || ''));
+    }
+    if (_activeTypeFilter.size) {
+      sessions = sessions.filter(s => _activeTypeFilter.has(s.type || ''));
+    }
+    if (_activeStatusFilter === 'open') {
+      sessions = sessions.filter(s => s.status === 'open' || s.status === 'full');
+    } else if (_activeStatusFilter === 'closed') {
+      sessions = sessions.filter(s => s.status === 'closed' || s.status === 'cancelled');
+    }
+    if (_activeDateFilter) {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const end   = new Date(today);
+      if      (_activeDateFilter === 'today') end.setDate(end.getDate() + 1);
+      else if (_activeDateFilter === 'week')  end.setDate(end.getDate() + 7);
+      else if (_activeDateFilter === 'month') end.setMonth(end.getMonth() + 1);
+      sessions = sessions.filter(s => {
+        const d = s.date?.toDate?.() || new Date(s.date);
+        return d >= today && d < end;
+      });
     }
     const providerBannerHtml = _activeProviderFilter
       ? `<div class="provider-banner"><span class="provider-banner-label">My sessions</span><button class="provider-banner-clear" onclick="goHome()">← All sessions</button></div>`

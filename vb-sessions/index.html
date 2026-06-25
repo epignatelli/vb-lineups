@@ -617,6 +617,42 @@
 <div class="bottom-chrome">
   <div class="fbar" id="filter-bar" style="display:none">
   <div class="fbar-item">
+    <div class="fbar-pop" id="fpop-status">
+      <button class="fpop-opt"        data-status=""       onclick="setStatusFilter('')">All</button>
+      <button class="fpop-opt active" data-status="open"   onclick="setStatusFilter('open')">Open</button>
+      <button class="fpop-opt"        data-status="closed" onclick="setStatusFilter('closed')">Closed</button>
+    </div>
+    <button class="fbar-btn active" id="fbtn-status" onclick="toggleFilterPopover('status')">
+      <span id="flabel-status">Open</span><span class="fbar-caret">▾</span>
+    </button>
+  </div>
+  <div class="fbar-item">
+    <div class="fbar-pop" id="fpop-type">
+      <button class="fpop-opt active" data-type=""           onclick="setTypeFilter('')">All</button>
+      <button class="fpop-opt"        data-type="game"       onclick="setTypeFilter('game')">Game</button>
+      <button class="fpop-opt"        data-type="league"     onclick="setTypeFilter('league')">League</button>
+      <button class="fpop-opt"        data-type="clinic"     onclick="setTypeFilter('clinic')">Clinic</button>
+      <button class="fpop-opt"        data-type="kqotc"      onclick="setTypeFilter('kqotc')">KQOTC</button>
+      <button class="fpop-opt"        data-type="tournament" onclick="setTypeFilter('tournament')">Tournament</button>
+      <button class="fpop-opt"        data-type="tryout"     onclick="setTypeFilter('tryout')">Tryout</button>
+      <button class="fpop-opt"        data-type="training"   onclick="setTypeFilter('training')">Training</button>
+    </div>
+    <button class="fbar-btn" id="fbtn-type" onclick="toggleFilterPopover('type')">
+      <span id="flabel-type">Type</span><span class="fbar-caret">▾</span>
+    </button>
+  </div>
+  <div class="fbar-item">
+    <div class="fbar-pop" id="fpop-date">
+      <button class="fpop-opt active" data-date=""      onclick="setDateFilter('')">All</button>
+      <button class="fpop-opt"        data-date="today" onclick="setDateFilter('today')">Today</button>
+      <button class="fpop-opt"        data-date="week"  onclick="setDateFilter('week')">This week</button>
+      <button class="fpop-opt"        data-date="month" onclick="setDateFilter('month')">This month</button>
+    </div>
+    <button class="fbar-btn" id="fbtn-date" onclick="toggleFilterPopover('date')">
+      <span id="flabel-date">Date</span><span class="fbar-caret">▾</span>
+    </button>
+  </div>
+  <div class="fbar-item">
     <div class="fbar-pop" id="fpop-host">
       <!-- populated by _loadHostFilterPills() -->
     </div>
