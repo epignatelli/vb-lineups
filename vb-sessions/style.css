@@ -699,10 +699,13 @@ body {
 .user-flag  { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
               color: var(--muted); background: var(--surface2); border: 1px solid var(--border2);
               padding: 1px 5px; border-radius: 99px; margin-left: 4px; vertical-align: middle; }
-.user-flag.owner-badge    { color: var(--red);   background: var(--red-bg);                 border-color: rgba(248,113,113,.35); }
-.user-flag.coach-req      { color: var(--green); background: var(--green-bg);               border-color: rgba(34,201,122,.35); }
-.user-flag.provider-req   { color: #2dd4bf;      background: rgba(20,184,166,.15);          border-color: rgba(45,212,191,.35); }
-.user-flag.admin-req      { color: #f472b6;      background: rgba(244,114,182,.13);         border-color: rgba(244,114,182,.35); }
+.user-flag.owner-badge    { color: var(--red);   background: var(--red-bg);           border-color: rgba(248,113,113,.35); }
+.user-flag.admin-badge    { color: #f472b6;      background: rgba(244,114,182,.13);   border-color: rgba(244,114,182,.35); }
+.user-flag.coach-badge    { color: var(--green); background: var(--green-bg);         border-color: rgba(34,201,122,.35); }
+.user-flag.provider-badge { color: #2dd4bf;      background: rgba(20,184,166,.15);    border-color: rgba(45,212,191,.35); }
+.user-flag.coach-req      { color: var(--green); background: var(--green-bg);         border-color: rgba(34,201,122,.35); }
+.user-flag.provider-req   { color: #2dd4bf;      background: rgba(20,184,166,.15);    border-color: rgba(45,212,191,.35); }
+.user-flag.admin-req      { color: #f472b6;      background: rgba(244,114,182,.13);   border-color: rgba(244,114,182,.35); }
 
 .user-actions { display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
 
@@ -791,16 +794,23 @@ body {
 .role-status-btn:hover { border-color: var(--amber); color: var(--amber); }
 .role-status-btn:disabled { opacity: .5; cursor: default; }
 
-.role-action-btns { display: flex; gap: 8px; }
-.role-action-approve, .role-action-reject {
+.role-action-btns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.role-action-approve, .role-action-reject, .role-action-grant, .role-action-revoke {
   border: none; font-family: inherit;
-  font-size: 13px; font-weight: 700; letter-spacing: .03em;
-  padding: 5px 12px; border-radius: var(--radius-sm); cursor: pointer;
+  font-size: 12px; font-weight: 700; letter-spacing: .03em;
+  padding: 4px 10px; border-radius: var(--radius-sm); cursor: pointer;
   transition: opacity 120ms;
 }
-.role-action-approve { background: #16a34a; color: #fff; }
-.role-action-reject  { background: #dc2626; color: #fff; }
-.role-action-approve:hover, .role-action-reject:hover { opacity: .82; }
+.role-action-approve { background: #16a34a;           color: #fff; }
+.role-action-reject  { background: #dc2626;           color: #fff; }
+.role-action-grant   { background: var(--surface2);   color: var(--text); border: 1px solid var(--border2); }
+.role-action-revoke  { background: var(--red-bg);     color: var(--red);  border: 1px solid rgba(248,113,113,.35); }
+.role-action-approve:hover, .role-action-reject:hover,
+.role-action-grant:hover, .role-action-revoke:hover { opacity: .75; }
+.role-action-grant.coach   { color: var(--green); background: var(--green-bg); border-color: rgba(34,201,122,.35); }
+.role-action-grant.provider{ color: #2dd4bf; background: rgba(20,184,166,.15); border-color: rgba(45,212,191,.35); }
+.role-action-grant.admin   { color: #f472b6; background: rgba(244,114,182,.13); border-color: rgba(244,114,182,.35); }
+.role-action-grant.owner   { color: var(--red); background: var(--red-bg); border-color: rgba(248,113,113,.35); }
 
 .profile-actions {
   display: flex; flex-direction: column; gap: 10px;

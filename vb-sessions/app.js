@@ -1645,9 +1645,9 @@ function _applyUserFilter() {
 }
 
 function _renderUserRow(u) {
-  _userDisplayNames[u.id] = u.name || u.email || u.id; // populate lookup map
-  const roles           = u.roles || ['player'];
-  const isMe            = _currentUser && u.id === _currentUser.uid;
+  _userDisplayNames[u.id] = u.name || u.email || u.id;
+  const roles              = u.roles || ['player'];
+  const isMe               = _currentUser && u.id === _currentUser.uid;
   const hasOwner           = roles.includes('owner');
   const hasAdmin           = roles.includes('admin');
   const hasCoach           = roles.includes('coach');
@@ -1655,44 +1655,13 @@ function _renderUserRow(u) {
   const hasPendingCoach    = _isOpenRequest(u.coachRequest) && !hasCoach;
   const hasPendingProvider = _isOpenRequest(u.providerRequest) && !hasProvider;
   const hasPendingAdmin    = !!u.adminRequest && !hasAdmin;
-  const initials        = (u.name || u.email || '?')[0].toUpperCase();
-  const incomplete      = !u.gender || !(u.positions||[]).length;
-  const posLabels       = { setter:'S', hitter:'H', middle:'M', libero:'L' };
-  const posStr          = (u.positions||[]).map(p => posLabels[p]||p).join(' · ');
-  const genderSym       = { man:'♂', woman:'♀', nonbinary:'⚧' }[u.gender] || '';
-  const joined          = u.createdAt ? _formatDate(u.createdAt) : '';
-  const safeName        = esc(u.name || u.email || '');
-
-  // What the current user can do to this row:
-  const canManageOwner    = _isOwner && !isMe && !hasOwner;
-  const canManageAdmin    = _isOwner && !isMe;
-  const canManageCoach    = _isAdmin && !isMe;
-  const canManageProvider = _isAdmin && !isMe;
-  const canNominate       = _isAdmin && !_isOwner && !hasAdmin && !hasOwner && !hasPendingAdmin;
-  const canRemove         = _isOwner ? (!isMe && !hasOwner) : (_isAdmin && !hasAdmin && !hasOwner);
-
-  let actions = '';
-  if (_isAdmin) {
-    if (hasPendingCoach) {
-      actions += `<button class="role-toggle active coach" data-uid="${esc(u.id)}" onclick="approveCoach(this,this.dataset.uid)">Approve coach</button>
-                  <button class="role-toggle" data-uid="${esc(u.id)}" onclick="rejectCoach(this,this.dataset.uid)">Reject</button>`;
-    } else if (hasPendingProvider) {
-      actions += `<button class="role-toggle active provider" data-uid="${esc(u.id)}" onclick="approveProvider(this,this.dataset.uid)">Approve host</button>
-                  <button class="role-toggle" data-uid="${esc(u.id)}" onclick="rejectProvider(this,this.dataset.uid)">Reject</button>`;
-    } else if (hasPendingAdmin) {
-      actions += _isOwner
-        ? `<button class="role-toggle active admin" data-uid="${esc(u.id)}" onclick="approveAdmin(this,this.dataset.uid)">Approve admin</button>
-           <button class="role-toggle" data-uid="${esc(u.id)}" onclick="rejectAdmin(this,this.dataset.uid)">Reject</button>`
-        : `<span class="role-toggle active admin" style="cursor:default">Admin pending</span>`;
-    } else {
-      if (canManageOwner)    actions += `<button class="role-toggle${hasOwner ? ' active owner' : ''}" data-uid="${esc(u.id)}" data-role="owner" onclick="toggleRole(this,this.dataset.uid,this.dataset.role)">Sudo</button>`;
-      if (canManageAdmin)    actions += `<button class="role-toggle${hasAdmin ? ' active admin' : ''}" data-uid="${esc(u.id)}" data-role="admin" onclick="toggleRole(this,this.dataset.uid,this.dataset.role)">Admin</button>`;
-      if (canManageCoach)    actions += `<button class="role-toggle${hasCoach ? ' active coach' : ''}" data-uid="${esc(u.id)}" data-role="coach" onclick="toggleRole(this,this.dataset.uid,this.dataset.role)">Coach</button>`;
-      if (canManageProvider) actions += `<button class="role-toggle${hasProvider ? ' active provider' : ''}" data-uid="${esc(u.id)}" data-role="provider" onclick="toggleRole(this,this.dataset.uid,this.dataset.role)">Host</button>`;
-      if (canNominate)       actions += `<button class="role-toggle" data-uid="${esc(u.id)}" onclick="nominateForAdmin(this,this.dataset.uid)">Nominate admin</button>`;
-    }
-    if (canRemove) actions += `<button class="role-toggle danger" data-uid="${esc(u.id)}" onclick="banUser(this.dataset.uid)">Remove</button>`;
-  }
+  const initials           = (u.name || u.email || '?')[0].toUpperCase();
+  const incomplete         = !u.gender || !(u.positions||[]).length;
+  const posLabels          = { setter:'S', hitter:'H', middle:'M', libero:'L' };
+  const posStr             = (u.positions||[]).map(p => posLabels[p]||p).join(' · ');
+  const genderSym          = { man:'♂', woman:'♀', nonbinary:'⚧' }[u.gender] || '';
+  const joined             = u.createdAt ? _formatDate(u.createdAt) : '';
+  const canRemove          = _isAdmin && !isMe && (_isOwner ? !hasOwner : (!hasAdmin && !hasOwner));
 
   return `
     <div class="user-row" onclick="openProfileScreen('${u.id}')">
@@ -1702,44 +1671,71 @@ function _renderUserRow(u) {
       <div class="user-info">
         <div class="user-name">
           ${esc(u.name || '—')}${isMe ? ' <span class="user-you">you</span>' : ''}
-          ${hasOwner ? '<span class="user-flag owner-badge">sudo</span>' : ''}
-          ${incomplete ? '<span class="user-flag">incomplete</span>' : ''}
-          ${hasPendingCoach    ? '<span class="user-flag coach-req">coach request</span>' : ''}
-          ${hasPendingProvider ? '<span class="user-flag provider-req">host request</span>' : ''}
-          ${hasPendingAdmin    ? '<span class="user-flag admin-req">admin pending</span>' : ''}
+          ${hasOwner    ? '<span class="user-flag owner-badge">sudo</span>'       : ''}
+          ${hasAdmin    ? '<span class="user-flag admin-badge">admin</span>'      : ''}
+          ${hasCoach    ? '<span class="user-flag coach-badge">coach</span>'      : ''}
+          ${hasProvider ? '<span class="user-flag provider-badge">host</span>'   : ''}
+          ${incomplete        ? '<span class="user-flag">incomplete</span>'              : ''}
+          ${hasPendingCoach    ? '<span class="user-flag coach-req">coach req</span>'   : ''}
+          ${hasPendingProvider ? '<span class="user-flag provider-req">host req</span>' : ''}
+          ${hasPendingAdmin    ? '<span class="user-flag admin-req">admin req</span>'   : ''}
         </div>
         <div class="user-meta">${esc(u.email || '')}${genderSym ? ` · ${genderSym}` : ''}${posStr ? ` · ${posStr}` : ''}${joined ? ` · joined ${joined}` : ''}</div>
       </div>
-      ${actions ? `<div class="user-actions" onclick="event.stopPropagation()">${actions}</div>` : ''}
+      ${canRemove ? `<div class="user-actions" onclick="event.stopPropagation()"><button class="role-toggle danger" data-uid="${esc(u.id)}" onclick="banUser(this.dataset.uid)">Remove</button></div>` : ''}
     </div>`;
+}
+
+async function grantRole(btn, uid, role) {
+  if (!_isAdmin) return;
+  if ((role === 'admin' || role === 'owner') && !_isOwner) {
+    showToast('Only sudo users can grant admin or sudo roles.', 'error'); return;
+  }
+  const label   = _userDisplayNames[uid] || uid;
+  const roleStr = role === 'owner' ? 'Sudo' : role.charAt(0).toUpperCase() + role.slice(1);
+  if (!confirm(`Grant ${roleStr} role to ${label}?`)) return;
+  const restore = _setBtnLoading(btn);
+  try {
+    await callFn('updateUserRole', { uid, role, action: 'add' });
+    _refreshAfterRoleAction(uid);
+  } catch(e) {
+    restore();
+    console.error('Grant role failed:', e);
+    showToast(e.code === 'permission-denied' ? 'Only sudo users can grant admin or sudo roles.' : 'Couldn\'t grant role. Try again.', 'error');
+  }
+}
+
+async function revokeRole(btn, uid, role) {
+  if (!_isAdmin) return;
+  if ((role === 'admin' || role === 'owner') && !_isOwner) {
+    showToast('Only sudo users can revoke admin or sudo roles.', 'error'); return;
+  }
+  const label   = _userDisplayNames[uid] || uid;
+  const roleStr = role === 'owner' ? 'Sudo' : role.charAt(0).toUpperCase() + role.slice(1);
+  if (!confirm(`Revoke ${roleStr} role from ${label}?`)) return;
+  const restore = _setBtnLoading(btn);
+  try {
+    await callFn('updateUserRole', { uid, role, action: 'remove' });
+    _refreshAfterRoleAction(uid);
+  } catch(e) {
+    restore();
+    console.error('Revoke role failed:', e);
+    showToast(e.code === 'permission-denied' ? 'Only sudo users can revoke admin or sudo roles.' : 'Couldn\'t revoke role. Try again.', 'error');
+  }
 }
 
 async function toggleRole(btn, uid, role) {
   if (!_isAdmin) return;
   if ((role === 'admin' || role === 'owner') && !_isOwner) {
-    showToast('Only sudo users can change admin or sudo roles.', 'error');
-    return;
+    showToast('Only sudo users can change admin or sudo roles.', 'error'); return;
   }
   try {
     const doc      = await _userRef(uid).get();
     const roles    = doc.data()?.roles || ['player'];
     const isAdding = !roles.includes(role);
-    const label    = _userDisplayNames[uid] || uid;
-    const roleStr  = role === 'owner' ? 'Sudo' : role.charAt(0).toUpperCase() + role.slice(1);
-    if (!confirm(`${isAdding ? 'Grant' : 'Remove'} ${roleStr} role ${isAdding ? 'to' : 'from'} ${label}?`)) return;
-    const restore = _setBtnLoading(btn);
-    try {
-      await callFn('updateUserRole', { uid, role, action: isAdding ? 'add' : 'remove' });
-      renderUsers();
-    } catch(e) {
-      restore();
-      throw e;
-    }
+    return isAdding ? grantRole(btn, uid, role) : revokeRole(btn, uid, role);
   } catch(e) {
-    console.error('Toggle role failed:', e);
-    showToast(e.code === 'permission-denied'
-      ? 'Only sudo users can change admin or sudo roles.'
-      : 'Couldn\'t update role. Try again.', 'error');
+    showToast('Couldn\'t update role. Try again.', 'error');
   }
 }
 
@@ -1974,6 +1970,12 @@ async function openProfileScreen(uid) {
     const safeUid  = esc(targetUid);
     const safeName = esc(u.name || '');
     const _activeTag  = `<span class="role-status-active">Active</span>`;
+    const hasPendingAdmin = !!u.adminRequest && !roles.includes('admin');
+
+    const _grantRevoke = (role, hasRole, cls) =>
+      `<button class="role-action-${hasRole ? 'revoke' : 'grant'} ${cls}" data-uid="${esc(targetUid)}" data-role="${role}"
+         onclick="${hasRole ? 'revokeRole' : 'grantRole'}(this,this.dataset.uid,this.dataset.role)">${hasRole ? 'Revoke' : 'Grant'}</button>`;
+
     const adminSection = _isAdmin && !isOwn ? `
       <div class="detail-section">
         <div class="detail-section-title">Membership</div>
@@ -1984,24 +1986,52 @@ async function openProfileScreen(uid) {
           </div>
           <div class="role-status-row">
             <span class="role-status-name">Coach</span>
-            ${hasCoach ? _activeTag : hasPending ? `
+            ${hasPending ? `
               <div class="role-action-btns">
-                <button class="role-action-approve" data-uid="${esc(u.id)}" onclick="approveCoach(this,this.dataset.uid)">Approve</button>
-                <button class="role-action-reject" data-uid="${esc(u.id)}" onclick="rejectCoach(this,this.dataset.uid)">Reject</button>
-              </div>` : `<span class="role-status-locked">Not requested</span>`}
+                <button class="role-action-approve" data-uid="${esc(targetUid)}" onclick="approveCoach(this,this.dataset.uid)">Approve</button>
+                <button class="role-action-reject"  data-uid="${esc(targetUid)}" onclick="rejectCoach(this,this.dataset.uid)">Reject</button>
+              </div>`
+            : `<div class="role-action-btns">${hasCoach ? _activeTag : '<span class="role-status-locked">Not requested</span>'}
+                 ${_grantRevoke('coach', hasCoach, 'coach')}
+               </div>`}
           </div>
           <div class="role-status-row">
             <span class="role-status-name">Host</span>
-            ${hasProvider ? _activeTag : hasPendingProvider ? `
+            ${hasPendingProvider ? `
               <div class="role-action-btns">
-                <button class="role-action-approve" data-uid="${esc(u.id)}" onclick="approveProvider(this,this.dataset.uid)">Approve</button>
-                <button class="role-action-reject" data-uid="${esc(u.id)}" onclick="rejectProvider(this,this.dataset.uid)">Reject</button>
-              </div>` : `<span class="role-status-locked">Not requested</span>`}
+                <button class="role-action-approve" data-uid="${esc(targetUid)}" onclick="approveProvider(this,this.dataset.uid)">Approve</button>
+                <button class="role-action-reject"  data-uid="${esc(targetUid)}" onclick="rejectProvider(this,this.dataset.uid)">Reject</button>
+              </div>`
+            : `<div class="role-action-btns">${hasProvider ? _activeTag : '<span class="role-status-locked">Not requested</span>'}
+                 ${_grantRevoke('provider', hasProvider, 'provider')}
+               </div>`}
           </div>
           <div class="role-status-row">
             <span class="role-status-name">Admin</span>
-            ${roles.includes('admin') || roles.includes('owner') ? _activeTag : `<span class="role-status-locked">—</span>`}
+            ${hasPendingAdmin && _isOwner ? `
+              <div class="role-action-btns">
+                <button class="role-action-approve" data-uid="${esc(targetUid)}" onclick="approveAdmin(this,this.dataset.uid)">Approve</button>
+                <button class="role-action-reject"  data-uid="${esc(targetUid)}" onclick="rejectAdmin(this,this.dataset.uid)">Reject</button>
+              </div>`
+            : _isOwner ? `
+              <div class="role-action-btns">${hasAdmin ? _activeTag : '<span class="role-status-locked">—</span>'}
+                ${_grantRevoke('admin', hasAdmin, 'admin')}
+              </div>`
+            : hasPendingAdmin ? `<span class="role-status-pending">Pending sudo approval</span>`
+            : hasAdmin ? _activeTag
+            : `<span class="role-status-locked">—</span>`}
           </div>
+          ${_isOwner && !hasOwner ? `
+          <div class="role-status-row">
+            <span class="role-status-name">Sudo</span>
+            <div class="role-action-btns"><span class="role-status-locked">—</span>
+              ${_grantRevoke('owner', false, 'owner')}
+            </div>
+          </div>` : _isOwner && hasOwner ? `
+          <div class="role-status-row">
+            <span class="role-status-name">Sudo</span>
+            ${_activeTag}
+          </div>` : ''}
         </div>
       </div>` : '';
 
