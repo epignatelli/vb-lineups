@@ -3,7 +3,7 @@
 // HTTP functions use Gen 1 to avoid Cloud Run IAM org-policy (allUsers).
 // Firestore triggers use Gen 2 (Eventarc) — required for eur3 multi-region DB.
 const functions = require('firebase-functions/v1');
-const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentUpdated, onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const { initializeApp }            = require('firebase-admin/app');
 const { getAuth }                  = require('firebase-admin/auth');
@@ -33,6 +33,34 @@ async function verifyAuth(req) {
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) throw new Error('Unauthenticated');
   return getAuth().verifyIdToken(token);
+}
+
+// Returns { isAdmin, isOwner, roles } for the authenticated caller.
+async function _resolveCallerRole(db, decoded) {
+  const [callerDoc, adminDoc] = await Promise.all([
+    db.collection('users').doc(decoded.uid).get(),
+    db.collection('admins').doc(decoded.email || '').get(),
+  ]);
+  const roles   = callerDoc.data()?.roles || [];
+  const isOwner = roles.includes('owner');
+  const isAdmin = isOwner || roles.includes('admin') || adminDoc.exists;
+  return { isAdmin, isOwner, roles };
+}
+
+// Syncs safe public fields from a user doc to publicProfiles/{uid}.
+async function _syncPublicProfile(db, uid, data) {
+  const publicRoles = (data.roles || ['player']).filter(r => ['player', 'coach', 'provider'].includes(r));
+  await db.collection('publicProfiles').doc(uid).set({
+    name:       data.name       || null,
+    photoURL:   data.photoURL   || null,
+    level:      data.level      || null,
+    gender:     data.gender     || null,
+    positions:  data.positions  || [],
+    createdAt:  data.createdAt  || null,
+    roles:      publicRoles,
+    isProvider: publicRoles.includes('provider'),
+    isCoach:    publicRoles.includes('coach'),
+  }, { merge: false });
 }
 
 let _stripe;
@@ -527,7 +555,7 @@ exports.cancelAttendeeAndRefund = functions
         await getStripe().refunds.create({
           payment_intent: attendee.paymentIntentId,
           amount:         refundPence,
-        });
+        }, { idempotencyKey: `refund-${attendee.paymentIntentId}` });
         refunded = true;
       }
     }
@@ -844,11 +872,7 @@ exports.removeAttendeeAdmin = functions
     catch (e) { return res.status(401).json({ error: 'Unauthorized.' }); }
 
     const db = getFirestore();
-    const [callerDoc, adminDoc] = await Promise.all([
-      db.collection('users').doc(decoded.uid).get(),
-      db.collection('admins').doc(decoded.email || '').get(),
-    ]);
-    const isAdmin = (callerDoc.data()?.roles || []).includes('admin') || adminDoc.exists;
+    const { isAdmin } = await _resolveCallerRole(db, decoded);
     if (!isAdmin) return res.status(403).json({ error: 'Admin only.' });
 
     const { sessionId, uid } = req.body;
@@ -979,6 +1003,23 @@ exports.onSessionUpdated = onDocumentUpdated({
   }));
 });
 
+// ── onUserWritten — keep publicProfiles in sync ──────────────────────────────
+// Fires on every create, update, or delete of a users/{uid} document.
+// publicProfiles/{uid} exposes only safe public fields to other authenticated users.
+exports.onUserWritten = onDocumentWritten({
+  document: 'users/{uid}',
+  region: REGION_FIRESTORE,
+}, async (event) => {
+  const db  = getFirestore();
+  const uid = event.params.uid;
+  if (!event.data.after.exists) {
+    await db.collection('publicProfiles').doc(uid).delete().catch(() => {});
+    return;
+  }
+  const d = event.data.after.data() || {};
+  await _syncPublicProfile(db, uid, d);
+});
+
 // ── deleteSessionAdmin ───────────────────────────────────────────────────────
 exports.deleteSessionAdmin = functions
   .region(REGION)
@@ -993,11 +1034,7 @@ exports.deleteSessionAdmin = functions
     catch (e) { return res.status(401).json({ error: 'Unauthorized.' }); }
 
     const db = getFirestore();
-    const [callerDoc, adminDoc] = await Promise.all([
-      db.collection('users').doc(decoded.uid).get(),
-      db.collection('admins').doc(decoded.email || '').get(),
-    ]);
-    const isAdmin = (callerDoc.data()?.roles || []).includes('admin') || adminDoc.exists;
+    const { isAdmin } = await _resolveCallerRole(db, decoded);
     if (!isAdmin) return res.status(403).json({ error: 'Admin only.' });
 
     const { sessionId } = req.body;
@@ -1173,7 +1210,7 @@ exports.approveCoachPayment = functions
           currency:    'gbp',
           destination: coachUser.stripeAccountId,
           description: `Coach payment — ${venue}`,
-        });
+        }, { idempotencyKey: `coach-payment-${sessionId}` });
       } catch (stripeErr) {
         console.error('Transfer failed:', stripeErr.message);
         // Notify the approving admin — don't expose Stripe errors to the coach
@@ -1246,33 +1283,42 @@ exports.messageSessionAttendees = functions
     catch (e) { return res.status(401).json({ error: 'Unauthorized.' }); }
 
     const db = getFirestore();
-    const [callerDoc, adminDoc] = await Promise.all([
-      db.collection('users').doc(decoded.uid).get(),
-      db.collection('admins').doc(decoded.email || '').get(),
-    ]);
-    const isAdmin = (callerDoc.data()?.roles || []).includes('admin') || adminDoc.exists;
+    const { isAdmin } = await _resolveCallerRole(db, decoded);
     if (!isAdmin) return res.status(403).json({ error: 'Admin only.' });
 
     const { sessionId, subject, body } = req.body;
     if (!sessionId || !subject || !body)
       return res.status(400).json({ error: 'Missing sessionId, subject, or body.' });
+    if (typeof subject !== 'string' || subject.length > 200)
+      return res.status(400).json({ error: 'subject must be ≤200 characters.' });
+    if (typeof body !== 'string' || body.length > 2000)
+      return res.status(400).json({ error: 'body must be ≤2000 characters.' });
 
     const sessionRef  = db.collection('sessions').doc(sessionId);
     const sessionSnap = await sessionRef.get();
     if (!sessionSnap.exists) return res.status(404).json({ error: 'Session not found.' });
 
-    const session       = sessionSnap.data();
+    // Rate-limit: max one broadcast per 5 minutes per session.
+    const sessionData = sessionSnap.data();
+    const lastMsg = sessionData.lastMessageAt;
+    if (lastMsg && (Date.now() - lastMsg.toMillis()) < 300000)
+      return res.status(429).json({ error: 'Please wait 5 minutes between messages to attendees.' });
+
     const attendeesSnap = await sessionRef.collection('attendees').get();
+
+    // Escape admin-provided body so HTML tags cannot inject into email.
+    const safeBody = _hEsc(body).replace(/\n/g, '<br>');
 
     await Promise.all(attendeesSnap.docs.map(doc => {
       const a = doc.data();
       if (!a.email) return;
       return sendEmail(a.email, subject,
-        _emailHtml(`Hi ${a.name || 'there'},`, [body])
+        _emailHtml(`Hi ${a.name || 'there'},`, [safeBody])
       );
     }));
 
     await sessionRef.update({
+      lastMessageAt: FieldValue.serverTimestamp(),
       messages: FieldValue.arrayUnion({
         sentAt:   new Date().toISOString(),
         sentBy:   decoded.email || decoded.uid,
@@ -1305,7 +1351,14 @@ exports.notifyCoachRequest = functions
     const db         = getFirestore();
     // Derive name from Firestore, never from client body
     const userSnap   = await db.collection('users').doc(uid).get();
-    const safeName   = _hEsc(userSnap.data()?.name || uid);
+    const userData   = userSnap.data() || {};
+    const safeName   = _hEsc(userData.name || uid);
+
+    // Rate limit: 1 notification email per hour per request
+    const emailSentAt = userData.coachRequest?.emailSentAt;
+    if (emailSentAt && (Date.now() - emailSentAt.toMillis()) < 3600000)
+      return res.status(429).json({ error: 'Please wait 1 hour between notification emails.' });
+
     const adminsSnap = await db.collection('admins').get();
 
     const { approveUrl, rejectUrl } = await _createRequestTokens(db, uid, 'coach');
@@ -1320,6 +1373,8 @@ exports.notifyCoachRequest = functions
         ], null, null, null, actionButtons)
       )
     ));
+
+    await db.collection('users').doc(uid).update({ 'coachRequest.emailSentAt': FieldValue.serverTimestamp() });
 
     return res.json({ ok: true });
   });
@@ -1341,11 +1396,8 @@ exports.notifyAdminRequest = functions
     if (!uid) return res.status(400).json({ error: 'Missing uid.' });
 
     const db          = getFirestore();
-    // Caller must be an admin to nominate someone
-    const callerAdminDoc = await db.collection('admins').doc(decoded.email || '').get();
-    const callerRoles    = (await db.collection('users').doc(decoded.uid).get()).data()?.roles || [];
-    if (!callerAdminDoc.exists && !callerRoles.includes('admin') && !callerRoles.includes('owner'))
-      return res.status(403).json({ error: 'Admins only.' });
+    const { isAdmin: callerIsAdmin } = await _resolveCallerRole(db, decoded);
+    if (!callerIsAdmin) return res.status(403).json({ error: 'Admins only.' });
 
     // Derive name from Firestore
     const targetSnap  = await db.collection('users').doc(uid).get();
@@ -1393,7 +1445,14 @@ exports.notifyProviderRequest = functions
     const db         = getFirestore();
     // Derive name from Firestore, never from client body
     const userSnap   = await db.collection('users').doc(uid).get();
-    const safeName   = _hEsc(userSnap.data()?.name || uid);
+    const userData   = userSnap.data() || {};
+    const safeName   = _hEsc(userData.name || uid);
+
+    // Rate limit: 1 notification email per hour per request
+    const emailSentAt = userData.providerRequest?.emailSentAt;
+    if (emailSentAt && (Date.now() - emailSentAt.toMillis()) < 3600000)
+      return res.status(429).json({ error: 'Please wait 1 hour between notification emails.' });
+
     const adminsSnap = await db.collection('admins').get();
     const appUrl     = 'https://epignatelli.github.io/apps/vb-sessions/#users';
 
@@ -1410,6 +1469,8 @@ exports.notifyProviderRequest = functions
         ], null, null, null, actionButtons)
       )
     ));
+
+    await db.collection('users').doc(uid).update({ 'providerRequest.emailSentAt': FieldValue.serverTimestamp() });
 
     return res.json({ ok: true });
   });
@@ -1430,11 +1491,9 @@ exports.notifyHostRequestOutcome = functions
     const { uid, approved } = req.body;
     if (!uid) return res.status(400).json({ error: 'Missing uid.' });
 
-    const db             = getFirestore();
-    const callerAdminDoc = await db.collection('admins').doc(decoded.email || '').get();
-    const callerRoles    = (await db.collection('users').doc(decoded.uid).get()).data()?.roles || [];
-    if (!callerAdminDoc.exists && !callerRoles.includes('admin') && !callerRoles.includes('owner'))
-      return res.status(403).json({ error: 'Admins only.' });
+    const db = getFirestore();
+    const { isAdmin } = await _resolveCallerRole(db, decoded);
+    if (!isAdmin) return res.status(403).json({ error: 'Admins only.' });
 
     const userSnap = await db.collection('users').doc(uid).get();
     const email    = userSnap.data()?.email;
@@ -1482,11 +1541,9 @@ exports.notifyCoachRequestOutcome = functions
     const { uid, approved } = req.body;
     if (!uid) return res.status(400).json({ error: 'Missing uid.' });
 
-    const db             = getFirestore();
-    const callerAdminDoc = await db.collection('admins').doc(decoded.email || '').get();
-    const callerRoles    = (await db.collection('users').doc(decoded.uid).get()).data()?.roles || [];
-    if (!callerAdminDoc.exists && !callerRoles.includes('admin') && !callerRoles.includes('owner'))
-      return res.status(403).json({ error: 'Admins only.' });
+    const db = getFirestore();
+    const { isAdmin } = await _resolveCallerRole(db, decoded);
+    if (!isAdmin) return res.status(403).json({ error: 'Admins only.' });
 
     const userSnap = await db.collection('users').doc(uid).get();
     const email    = userSnap.data()?.email;
@@ -1680,12 +1737,8 @@ exports.removeUser = functions
     try { decoded = await verifyAuth(req); }
     catch (e) { return res.status(401).json({ error: 'Unauthorized.' }); }
 
-    const db         = getFirestore();
-    const callerDoc  = await db.collection('users').doc(decoded.uid).get();
-    const callerData = callerDoc.data() || {};
-    const callerRoles = callerData.roles || [];
-    const isAdmin    = callerRoles.includes('admin') || callerRoles.includes('owner')
-                       || (await db.collection('admins').doc(decoded.email || '').get()).exists;
+    const db = getFirestore();
+    const { isAdmin, isOwner: callerIsOwner } = await _resolveCallerRole(db, decoded);
     if (!isAdmin) return res.status(403).json({ error: 'Admins only.' });
 
     const { uid } = req.body;
@@ -1695,13 +1748,13 @@ exports.removeUser = functions
     // Owners can remove anyone except other owners; admins cannot remove admins/owners.
     const targetDoc   = await db.collection('users').doc(uid).get();
     const targetRoles = targetDoc.data()?.roles || [];
-    const callerIsOwner = callerRoles.includes('owner');
     if (targetRoles.includes('owner')) return res.status(403).json({ error: 'Cannot remove an owner.' });
     if (!callerIsOwner && (targetRoles.includes('admin'))) {
       return res.status(403).json({ error: 'Only owners can remove admins.' });
     }
 
     await db.collection('users').doc(uid).delete();
+    await db.collection('publicProfiles').doc(uid).delete().catch(() => {});
     try { await getAuth().deleteUser(uid); } catch(_) {}
 
     return res.json({ ok: true });
@@ -1731,13 +1784,8 @@ exports.updateUserRole = functions
     if (![...ADMIN_ROLES, ...OWNER_ROLES].includes(role))
       return res.status(400).json({ error: 'Invalid role.' });
 
-    const db         = getFirestore();
-    const callerSnap = await db.collection('users').doc(decoded.uid).get();
-    const callerRoles = callerSnap.data()?.roles || [];
-    const callerIsOwner = callerRoles.includes('owner');
-    const callerIsAdmin = callerIsOwner || callerRoles.includes('admin')
-      || (await db.collection('admins').doc(decoded.email || '').get()).exists;
-
+    const db = getFirestore();
+    const { isAdmin: callerIsAdmin, isOwner: callerIsOwner } = await _resolveCallerRole(db, decoded);
     if (!callerIsAdmin) return res.status(403).json({ error: 'Admins only.' });
     if (OWNER_ROLES.includes(role) && !callerIsOwner)
       return res.status(403).json({ error: 'Only owners can change admin roles.' });

@@ -81,6 +81,7 @@ function getAuth() { return firebase.auth(); }
 
 const FN_BASE = 'https://europe-west2-roots-kqotc.cloudfunctions.net';
 async function callFn(name, body) {
+  if (!_currentUser) throw new Error('Not signed in.');
   const token = await _currentUser.getIdToken();
   const res   = await fetch(`${FN_BASE}/${name}`, {
     method:  'POST',
@@ -514,7 +515,7 @@ async function _loadHostFilterPills() {
   const container = document.getElementById('fpop-host');
   if (!container) return;
   try {
-    const snap = await getDb().collection('users').where('roles', 'array-contains', 'provider').get();
+    const snap = await getDb().collection('publicProfiles').where('isProvider', '==', true).get();
     if (!snap || snap.empty) {
       container.innerHTML = `<button class="fpop-opt active" data-host="" onclick="setHostFilter('')">All</button>`;
       return;
@@ -646,6 +647,12 @@ function _googleCalendarUrl(session) {
     `&location=${encodeURIComponent(session.venue || '')}`;
 }
 
+// Escapes a value for inclusion in an iCalendar property (RFC 5545 §3.3.11).
+// Strips bare CR/LF (line injection), then escapes \ ; , and folds newlines.
+function _icsEsc(s) {
+  return String(s || '').replace(/\r\n?|\n(?!\\)/g, ' ').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,');
+}
+
 function downloadIcs() {
   const c = _calendarDates(_currentSession);
   if (!c) return;
@@ -654,9 +661,9 @@ function downloadIcs() {
     'BEGIN:VEVENT',
     `DTSTART;TZID=Europe/London:${c.start}`,
     `DTEND;TZID=Europe/London:${c.end}`,
-    `SUMMARY:${c.title}`,
-    _currentSession.venue ? `LOCATION:${_currentSession.venue}` : '',
-    _currentSession.description ? `DESCRIPTION:${_currentSession.description.replace(/\n/g, '\\n')}` : '',
+    `SUMMARY:${_icsEsc(c.title)}`,
+    _currentSession.venue ? `LOCATION:${_icsEsc(_currentSession.venue)}` : '',
+    _currentSession.description ? `DESCRIPTION:${_icsEsc(_currentSession.description)}` : '',
     'END:VEVENT', 'END:VCALENDAR',
   ].filter(Boolean).join('\r\n');
   const a = Object.assign(document.createElement('a'), {
@@ -858,7 +865,7 @@ function _renderSessionCard(s) {
       ${(_isAdmin || (_isProvider && _currentUser && s.providerUid === _currentUser.uid)) ? `
         <div class="session-admin-btns" onclick="event.stopPropagation()">
           <button class="icon-btn" onclick="openSessionForm('${s.id}')" title="Edit">✎</button>
-          ${_isAdmin ? `<button class="icon-btn danger" onclick="deleteSession('${s.id}','${esc(s.venue || '')}',this)" title="Delete">✕</button>` : ''}
+          ${_isAdmin ? `<button class="icon-btn danger" data-id="${esc(s.id)}" data-venue="${esc(s.venue || '')}" onclick="deleteSession(this.dataset.id,this.dataset.venue,this)" title="Delete">✕</button>` : ''}
         </div>` : ''}
     </div>`;
 }
@@ -996,7 +1003,7 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
                 ${a.seriesId ? `<span class="att-chip series-chip" title="Series pass">S</span>` : ''}
                 ${canSee && session.cost > 0 ? `<span class="att-chip ${a.feeWaived ? 'waived-chip' : a.paid ? 'paid-chip' : 'unpaid-chip'}">${a.feeWaived ? '£–' : a.paid ? '£✓' : '£?'}</span>` : ''}
                 ${_isAdmin ? `<span class="attendee-email">${esc(a.email || '')}</span>` : ''}
-                ${isOwn && session.askPositions ? `<button class="icon-btn small" onclick="openEditPositions('${session.id}','${Array.from(posSet).join(',')}')" title="Edit positions">✎</button>` : ''}
+                ${isOwn && session.askPositions ? `<button class="icon-btn small" data-session-id="${esc(session.id)}" data-positions="${esc(Array.from(posSet).join(','))}" onclick="openEditPositions(this.dataset.sessionId,this.dataset.positions)" title="Edit positions">✎</button>` : ''}
                 ${_isAdmin ? `<button class="icon-btn danger small" onclick="removeAttendee('${session.id}','${a.id}')" title="Remove">✕</button>` : ''}
               </div>`;
             }).join('')}
@@ -1679,9 +1686,11 @@ async function openProfileScreen(uid) {
   body.innerHTML = '<div class="home-empty">Loading…</div>';
 
   try {
-    const doc    = await _userRef(targetUid).get();
-    const u      = doc.exists ? { id: doc.id, ...doc.data() } : {};
     const isOwn  = _currentUser && targetUid === _currentUser.uid;
+    // Self and admins see the full user doc; others see only public fields.
+    const docRef = isOwn || _isAdmin ? _userRef(targetUid) : getDb().collection('publicProfiles').doc(targetUid);
+    const doc    = await docRef.get();
+    const u      = doc.exists ? { id: doc.id, ...doc.data() } : {};
     const roles  = u.roles || ['player'];
     const hasCoach           = roles.includes('coach');
     const hasPending         = _isOpenRequest(u.coachRequest) && !hasCoach;
@@ -2839,9 +2848,12 @@ function _renderReport(report, session) {
 
 // ─── CSV / print export ────────────────────────────────────────────────────────
 function _downloadCsv(filename, rows) {
-  const csv = rows.map(r =>
-    r.map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(',')
-  ).join('\n');
+  // Prefix formula-injection triggers so spreadsheets don't execute them.
+  const csvCell = v => {
+    const s = String(v == null ? '' : v);
+    return `"${(/^[=+\-@\t\r]/.test(s) ? '\'' + s : s).replace(/"/g, '""')}"`;
+  };
+  const csv = rows.map(r => r.map(csvCell).join(',')).join('\n');
   const a   = Object.assign(document.createElement('a'), {
     href:     'data:text/csv;charset=utf-8,' + encodeURIComponent(csv),
     download: filename,
@@ -3519,7 +3531,7 @@ function _renderInsightsUI(container) {
   };
   const multiBtn = (key, val) => {
     const active = _insightFilter[key].includes(val) ? ' active' : '';
-    return `<button class="filter-btn${active}" onclick="setInsightFilter('${key}','${esc(val)}')">${esc(val)}</button>`;
+    return `<button class="filter-btn${active}" data-key="${esc(key)}" data-val="${esc(val)}" onclick="setInsightFilter(this.dataset.key,this.dataset.val)">${esc(val)}</button>`;
   };
 
   // ── Money KPIs ──
