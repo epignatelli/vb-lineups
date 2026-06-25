@@ -17,7 +17,7 @@ const SESSION_GENDERS = [
 const PHOTO_CONSENT_VERSION = '1.0';
 const TERMS_VERSION         = '1.0';
 // Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
-const VAPID_KEY = null; // TODO: paste your VAPID public key here
+const VAPID_KEY = 'BEGU7JjvOHiJtWbrgZ2_9EDYb1mcoengEyQNlYaPeVr_pMeIQDOvumGu1WmPmA4KNKb3wDJphCZwCoNwIiYOCzU';
 
 // ─── State ─────────────────────────────────────────────────────────────────────
 let _currentUser  = null;
