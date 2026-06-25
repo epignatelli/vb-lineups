@@ -15,6 +15,7 @@ const SESSION_GENDERS = [
 ];
 
 const PHOTO_CONSENT_VERSION = '1.0';
+const TERMS_VERSION         = '1.0';
 
 // ─── State ─────────────────────────────────────────────────────────────────────
 let _currentUser  = null;
@@ -141,6 +142,7 @@ async function _upsertUserDoc(user) {
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
     }
+    return doc.data()?.termsAccepted;
   } catch(e) { console.error('Upsert user doc failed:', e); }
 }
 
@@ -286,7 +288,10 @@ getAuth().onAuthStateChanged(async user => {
       }
     } else renderHome();
 
-    await _upsertUserDoc(user);
+    const termsAccepted = await _upsertUserDoc(user);
+    if (!termsAccepted || termsAccepted.version !== TERMS_VERSION) {
+      _showTermsModal();
+    }
     _subscribeToUserDoc(user);
     _maybeShowOnboarding(user);
 
@@ -1184,6 +1189,41 @@ async function _confirmAgeConsent(sessionId) {
   document.getElementById('age-consent-overlay').remove();
   await _userRef(_currentUser.uid).update({ ageConsent: { confirmed: true, at: firebase.firestore.FieldValue.serverTimestamp() } });
   await register(sessionId);
+}
+
+function _showTermsModal() {
+  const existing = document.getElementById('terms-overlay');
+  if (existing) return;
+  const el = document.createElement('div');
+  el.id = 'terms-overlay';
+  el.className = 'overlay open';
+  el.style.zIndex = '9999';
+  el.innerHTML = `
+    <div class="panel" style="max-width:420px">
+      <div class="panel-header"><span class="panel-title">Welcome to Roots</span></div>
+      <div style="padding:0 0 20px;font-size:14px;color:var(--muted);line-height:1.6">
+        Before you continue, please read and accept our Terms &amp; Policy.
+      </div>
+      <label style="display:flex;gap:12px;align-items:flex-start;cursor:pointer;margin-bottom:20px">
+        <input type="checkbox" id="terms-check" style="margin-top:3px;flex-shrink:0" />
+        <span style="font-size:14px;color:var(--text);line-height:1.6">I have read and agree to the <a href="../policy/" target="_blank" style="color:var(--amber)">Terms &amp; Policy</a>, including the cancellation and refund policy.</span>
+      </label>
+      <div id="terms-error" style="color:var(--red);font-size:13px;min-height:18px;margin-bottom:12px"></div>
+      <button class="cta-btn" onclick="_confirmTerms()">Continue →</button>
+      <button class="cta-btn secondary-btn" style="margin-top:8px" onclick="handleAuthClick()">Sign out</button>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+async function _confirmTerms() {
+  if (!document.getElementById('terms-check').checked) {
+    document.getElementById('terms-error').textContent = 'Please tick the box to continue.';
+    return;
+  }
+  document.getElementById('terms-overlay').remove();
+  await _userRef(_currentUser.uid).update({
+    termsAccepted: { version: TERMS_VERSION, at: firebase.firestore.FieldValue.serverTimestamp() },
+  });
 }
 
 function _showPhotoConsentModal(sessionId) {
