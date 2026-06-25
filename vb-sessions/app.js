@@ -22,7 +22,6 @@ let _isCoach                  = false;
 let _isProvider               = false;
 let _isOwner                  = false;
 let _providerOnboardingComplete = false;
-let _legacyAdmin  = false;   // cached check against admins/{email} collection
 let _userDocUnsub = null;    // unsubscribe fn for own user doc listener
 let _editingId              = null;   // session ID being edited, null when creating
 let _pendingJoinSessionId   = null;   // session to join after sign-in completes
@@ -120,10 +119,7 @@ async function _upsertUserDoc(user) {
   try {
     const doc          = await ref.get();
     const currentRoles = doc.data()?.roles || [];
-    // Sync legacy admin status into roles (bootstrap path)
     let roles = currentRoles.length ? currentRoles : ['player'];
-    if (_legacyAdmin && !roles.includes('admin')) roles = [...roles, 'admin'];
-    if (_legacyAdmin && !roles.includes('owner')) roles = [...roles, 'owner'];
 
     if (doc.exists) {
       await ref.update({
@@ -161,7 +157,7 @@ function _subscribeToUserDoc(user) {
   _userDocUnsub = _userRef(user.uid).onSnapshot(doc => {
     _currentRoles = (doc.data()?.roles) || ['player'];
     _isOwner = _currentRoles.includes('owner');
-    _isAdmin    = _legacyAdmin || _isOwner || _currentRoles.includes('admin');
+    _isAdmin    = _isOwner || _currentRoles.includes('admin');
     _isCoach    = _currentRoles.includes('coach');
     _isProvider = _currentRoles.includes('provider');
     _providerOnboardingComplete = !!doc.data()?.providerOnboardingComplete;
@@ -273,12 +269,6 @@ getAuth().onAuthStateChanged(async user => {
   if (user) {
     _updateAuthUI();
 
-    try {
-      const adminDoc = await getDb().collection('admins').doc(user.email).get();
-      _legacyAdmin = adminDoc.exists;
-    } catch(e) { _legacyAdmin = false; }
-
-    _isAdmin = _legacyAdmin;
     _updateAuthUI();
 
     if (!_initialRouted) {
@@ -310,11 +300,10 @@ getAuth().onAuthStateChanged(async user => {
     }
   } else {
     _currentRoles = [];
-    _isAdmin                   = false;
+    _isAdmin  = false;
     _isCoach                   = false;
     _isProvider                 = false;
     _isOwner                    = false;
-    _legacyAdmin                = false;
     _providerOnboardingComplete = false;
     _pendingProviderRequest     = false;
     _updateAuthUI();

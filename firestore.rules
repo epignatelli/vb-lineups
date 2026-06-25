@@ -7,11 +7,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return request.auth != null && (
-        userRoles().hasAny(['admin', 'owner'])
-        || (request.auth.token.email != null
-            && exists(/databases/$(database)/documents/admins/$(request.auth.token.email)))
-      );
+      return request.auth != null && userRoles().hasAny(['admin', 'owner']);
     }
 
     function isOwner() {
@@ -26,11 +22,6 @@ service cloud.firestore {
     function isSessionCoach(sessionId) {
       return get(/databases/$(database)/documents/sessions/$(sessionId)).data.coachUid
              == request.auth.uid;
-    }
-
-    match /admins/{email} {
-      allow read:  if isAdmin(); // admin list is not for general users
-      allow write: if false;
     }
 
     match /tournaments/{tournamentId} {

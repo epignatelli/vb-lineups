@@ -40,13 +40,10 @@ async function verifyAuth(req) {
 
 // Returns { isAdmin, isOwner, roles } for the authenticated caller.
 async function _resolveCallerRole(db, decoded) {
-  const [callerDoc, adminDoc] = await Promise.all([
-    db.collection('users').doc(decoded.uid).get(),
-    db.collection('admins').doc(decoded.email || '').get(),
-  ]);
+  const callerDoc = await db.collection('users').doc(decoded.uid).get();
   const roles   = callerDoc.data()?.roles || [];
   const isOwner = roles.includes('owner');
-  const isAdmin = isOwner || roles.includes('admin') || adminDoc.exists;
+  const isAdmin = isOwner || roles.includes('admin');
   return { isAdmin, isOwner, roles };
 }
 
