@@ -951,11 +951,19 @@ body {
 
 /* ─── Session type badges ─────────────────────────────────────────────── */
 .session-badge.type-game       { background: var(--surface2);              color: var(--muted);  }
+.session-badge.type-league     { background: rgba(96,165,250,.13);         color: #93c5fd;       }
 .session-badge.type-clinic     { background: rgba(96,165,250,.13);         color: #93c5fd;       }
 .session-badge.type-kqotc      { background: var(--amber-bg);              color: var(--amber);  }
 .session-badge.type-tournament { background: var(--green-bg);              color: var(--green);  }
 .session-badge.type-tryout     { background: rgba(251,146,60,.13);         color: #fb923c;       }
 .session-badge.type-training   { background: var(--purple-bg);             color: var(--purple); }
+
+/* ─── Session level badges ────────────────────────────────────────────── */
+.session-badge.level-any          { background: var(--surface2);           color: var(--muted);  }
+.session-badge.level-beginner     { background: var(--green-bg);           color: var(--green);  }
+.session-badge.level-intermediate { background: rgba(96,165,250,.13);      color: #93c5fd;       }
+.session-badge.level-advanced     { background: rgba(251,146,60,.13);      color: #fb923c;       }
+.session-badge.level-competitive  { background: rgba(239,68,68,.12);       color: #f87171;       }
 
 /* ─── Session gender badges ───────────────────────────────────────────── */
 .session-badge.gender-mixed { background: var(--surface2);  color: var(--muted);  }

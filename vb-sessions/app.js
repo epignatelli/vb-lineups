@@ -870,7 +870,7 @@ function _renderSessionCard(s) {
       </div>
       <div class="session-card-meta">
         <span class="session-badge ${statusClass}">${statusLabel}</span>
-        ${levelLabel   ? `<span class="session-badge level">${esc(levelLabel)}</span>` : ''}
+        ${levelLabel   ? `<span class="session-badge level level-${esc(s.level)}">${esc(levelLabel)}</span>` : ''}
         ${typeLabel    ? `<span class="session-badge type-${esc(s.type)}">${esc(typeLabel)}</span>` : ''}
         ${genderLabel  ? `<span class="session-badge gender-${esc(s.gender)}">${esc(genderLabel)}</span>` : ''}
         ${s.seriesName && !_activeSeriesFilter ? `<span class="session-badge series-ref">${esc(s.seriesName)}</span>` : ''}
