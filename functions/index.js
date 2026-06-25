@@ -460,6 +460,7 @@ exports.stripeWebhook = functions
           present:           false,
           paid:              true,
           feeWaived:         false,
+          photoConsent:      u.photoConsent?.given ?? false,
           paymentIntentId,
           refundAmountPence: parseInt(refundAmountPence, 10) || 0,
           paidAt:            FieldValue.serverTimestamp(),

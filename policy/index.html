@@ -27,6 +27,13 @@
     a { color: var(--amber); }
     .section-divider { border: none; border-top: 1px solid var(--border); margin: 40px 0 0; }
     .updated { font-size: 12px; color: var(--muted); opacity: .5; margin-top: 36px; }
+    details { border-top: 1px solid var(--border); padding: 14px 0; }
+    details + details { border-top: none; padding-top: 0; }
+    summary { font-size: 15px; color: var(--text); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: '+'; font-size: 18px; color: var(--amber); flex-shrink: 0; margin-left: 12px; }
+    details[open] summary::after { content: '−'; }
+    details p { margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -111,6 +118,45 @@
 
   <h2>16. Contact</h2>
   <p>For any questions about these terms, please contact us at <a href="mailto:edu.pignatelli@gmail.com">edu.pignatelli@gmail.com</a>.</p>
+
+  <h2>17. Photography &amp; Filming</h2>
+  <p>Sessions may be photographed or filmed by the organiser for community promotion, social media, and internal records. Before joining their first session, players are asked to give or decline consent for this use of their likeness.</p>
+  <p>Consent is optional — declining does not affect your ability to register for or attend sessions. You can change your decision at any time from your profile settings.</p>
+  <p>Withdrawal of consent is respected for future sessions and communications, but does not retroactively remove material already published or shared prior to the withdrawal request. To request removal of specific already-published material, contact <a href="mailto:edu.pignatelli@gmail.com">edu.pignatelli@gmail.com</a>.</p>
+  <p>This consent is recorded with a version number and timestamp on your account and constitutes a lawful basis for processing under UK GDPR Article 6(1)(a).</p>
+
+  <hr class="section-divider" />
+
+  <h2>FAQ</h2>
+
+  <details>
+    <summary>How do I join a session?</summary>
+    <p>Sign in with your Google account, browse the sessions on the home screen, and tap a session to open it. If there are spots available, tap <strong>Join →</strong>. Free sessions are confirmed immediately; paid sessions redirect you to a secure Stripe checkout page.</p>
+  </details>
+  <details>
+    <summary>How do payments work?</summary>
+    <p>Payments are processed securely by Stripe. You'll be redirected to a Stripe-hosted checkout page where you can pay by card. Roots never stores your card details. Session fees are set by the session holder and displayed before you confirm.</p>
+  </details>
+  <details>
+    <summary>Can I get a refund if I can't make it?</summary>
+    <p>Yes — if you cancel more than 24 hours before the session starts, you'll receive a full refund of the session cost (excluding any booking fee). Cancellations within 24 hours are non-refundable. To cancel, open the session in the app and tap <strong>Cancel my registration</strong>.</p>
+  </details>
+  <details>
+    <summary>How do I become a coach or host?</summary>
+    <p>Open your profile, go to the Membership section, and tap <strong>Request →</strong> next to Coach or Host. An admin will review your request and notify you by email. Host accounts also require completing a Stripe onboarding to receive payments.</p>
+  </details>
+  <details>
+    <summary>What happens if a session is cancelled?</summary>
+    <p>You'll be notified by email. If you paid, a full refund including any booking fees is issued automatically to your original payment method and typically appears within 5–10 business days.</p>
+  </details>
+  <details>
+    <summary>How do I join the waiting list?</summary>
+    <p>When a session is full the <strong>Join →</strong> button changes to <strong>Join waiting list →</strong>. Tap it and you'll be added. If a spot opens up you'll receive an email — spots are filled on a first-come, first-served basis and are not held, so act quickly.</p>
+  </details>
+  <details>
+    <summary>Is my payment information secure?</summary>
+    <p>Yes. Payments are handled entirely by Stripe Payments Europe Ltd, a PCI-DSS Level 1 certified provider. Roots never sees or stores your card number. Your personal data is stored in Google Firebase under strict access controls.</p>
+  </details>
 
   <p class="updated">Last updated: June 2026</p>
 </main>

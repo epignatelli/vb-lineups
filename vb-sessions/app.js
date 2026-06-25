@@ -14,6 +14,8 @@ const SESSION_GENDERS = [
   { value: 'men',   label: 'Men' },
 ];
 
+const PHOTO_CONSENT_VERSION = '1.0';
+
 // ─── State ─────────────────────────────────────────────────────────────────────
 let _currentUser  = null;
 let _currentRoles = [];
@@ -993,6 +995,8 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
                 ${posChips ? `<div class="att-chips">${posChips}</div>` : ''}
                 ${a.seriesId ? `<span class="att-chip series-chip" title="Series pass">S</span>` : ''}
                 ${canSee && session.cost > 0 ? `<span class="att-chip ${a.feeWaived ? 'waived-chip' : a.paid ? 'paid-chip' : 'unpaid-chip'}">${a.feeWaived ? '£–' : a.paid ? '£✓' : '£?'}</span>` : ''}
+                ${_isAdmin && a.photoConsent === true  ? `<span class="att-chip photo-chip"   title="Consented to photos/filming">📷</span>` : ''}
+                ${_isAdmin && a.photoConsent === false ? `<span class="att-chip nophoto-chip" title="No photo/filming consent">📷✗</span>` : ''}
                 ${_isAdmin ? `<span class="attendee-email">${esc(a.email || '')}</span>` : ''}
                 ${isOwn && session.askPositions ? `<button class="icon-btn small" data-session-id="${esc(session.id)}" data-positions="${esc(Array.from(posSet).join(','))}" onclick="openEditPositions(this.dataset.sessionId,this.dataset.positions)" title="Edit positions">✎</button>` : ''}
                 ${_isAdmin ? `<button class="icon-btn danger small" onclick="removeAttendee('${session.id}','${a.id}')" title="Remove">✕</button>` : ''}
@@ -1124,6 +1128,13 @@ async function register(sessionId) {
       return;
     }
 
+    // Photo consent — one-time ask, optional (user can decline and still join)
+    if (userDoc.data()?.photoConsent === undefined) {
+      if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+      _showPhotoConsentModal(sessionId);
+      return;
+    }
+
     const needsGender    = !userDoc.data()?.gender;
     const needsPositions = sessionDoc.data()?.askPositions === true;
 
@@ -1175,6 +1186,44 @@ async function _confirmAgeConsent(sessionId) {
   await register(sessionId);
 }
 
+function _showPhotoConsentModal(sessionId) {
+  const existing = document.getElementById('photo-consent-overlay');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.id = 'photo-consent-overlay';
+  el.className = 'overlay open';
+  const sid = sessionId ? `'${sessionId}'` : 'null';
+  el.innerHTML = `
+    <div class="panel" style="max-width:420px">
+      <div class="panel-header"><span class="panel-title">Photo &amp; filming consent</span></div>
+      <div style="padding:0 0 20px;font-size:14px;color:var(--muted);line-height:1.6">
+        <p>Sessions may be photographed or filmed by the organiser for community promotion and social media.</p>
+        <p style="margin-top:10px">Do you consent to being photographed or filmed at Roots sessions? You can change this at any time from your profile.</p>
+      </div>
+      <button class="cta-btn" onclick="_confirmPhotoConsent(true, ${sid})">Yes, I consent</button>
+      <button class="cta-btn secondary-btn" style="margin-top:8px" onclick="_confirmPhotoConsent(false, ${sid})">No thanks</button>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+async function _confirmPhotoConsent(given, sessionId) {
+  const overlay = document.getElementById('photo-consent-overlay');
+  if (overlay) overlay.remove();
+  await _userRef(_currentUser.uid).update({
+    photoConsent: { given, version: PHOTO_CONSENT_VERSION, at: firebase.firestore.FieldValue.serverTimestamp() },
+  });
+  if (sessionId) await register(sessionId);
+  else openProfileScreen(_currentUser.uid);
+}
+
+async function withdrawPhotoConsent() {
+  await _userRef(_currentUser.uid).update({
+    photoConsent: { given: false, version: PHOTO_CONSENT_VERSION, at: firebase.firestore.FieldValue.serverTimestamp() },
+  });
+  showToast('Photo consent withdrawn.');
+  openProfileScreen(_currentUser.uid);
+}
+
 async function _doRegister(sessionId, extra = {}) {
   const btn = document.querySelector('#detail-footer .cta-btn');
   if (btn) { btn.disabled = true; btn.classList.add('loading'); }
@@ -1205,11 +1254,12 @@ async function _doRegister(sessionId, extra = {}) {
 
     // Free session or fee-waived → direct Firestore write.
     await _attendeesRef(sessionId).doc(_currentUser.uid).set({
-      name:       _currentUser.displayName || _currentUser.email,
-      email:      _currentUser.email || '',
-      joinedAt:   firebase.firestore.FieldValue.serverTimestamp(),
-      paid:       false,
-      feeWaived:  !!extra.feeWaived,
+      name:         _currentUser.displayName || _currentUser.email,
+      email:        _currentUser.email || '',
+      joinedAt:     firebase.firestore.FieldValue.serverTimestamp(),
+      paid:         false,
+      feeWaived:    !!extra.feeWaived,
+      photoConsent: userDoc.data()?.photoConsent?.given ?? false,
       ...extra,
     });
     await _sessionRef(sessionId).update({
@@ -1743,6 +1793,14 @@ async function openProfileScreen(uid) {
           <div class="role-status-row role-status-row--dim">
             <span class="role-status-name">Admin</span>
             ${roles.includes('admin') || roles.includes('owner') ? _roleCheck : _roleLocked}
+          </div>
+          <div class="role-status-row">
+            <span class="role-status-name">Photo consent</span>
+            ${u.photoConsent?.given
+              ? `<div style="display:flex;align-items:center;gap:8px"><span class="role-status-active">Given</span><button class="role-status-btn" onclick="withdrawPhotoConsent()">Withdraw</button></div>`
+              : u.photoConsent?.given === false
+                ? `<div style="display:flex;align-items:center;gap:8px"><span class="role-status-locked">Declined</span><button class="role-status-btn" onclick="_showPhotoConsentModal(null)">Give consent →</button></div>`
+                : `<button class="role-status-btn" onclick="_showPhotoConsentModal(null)">Decide →</button>`}
           </div>
         </div>
       </div>` : '';

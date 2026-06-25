@@ -180,11 +180,13 @@ body {
 
 /* ─── Footer (bottom of chrome, always visible) ──────────────────────────── */
 .roots-footer {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  height: 20px; line-height: 1;
+  display: flex; align-items: center; gap: 6px;
+  height: 20px; line-height: 1; padding-left: 16px;
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
+.att-chip.photo-chip { background: rgba(80,200,120,.15); color: #50c878; }
+.att-chip.nophoto-chip { background: rgba(255,80,80,.12); color: var(--red); }
 .roots-footer-link { font-size: 10px; color: var(--muted); text-decoration: none; letter-spacing: .06em; text-transform: uppercase; }
 .roots-footer-link:hover { color: var(--text); }
 .roots-footer-link.dim { opacity: .35; cursor: default; }
