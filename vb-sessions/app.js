@@ -172,6 +172,8 @@ function _subscribeToUserDoc(user) {
       else openProfileScreen();
     } else if (document.querySelector('.screen.active')?.id === 'screen-home') {
       renderHome();
+    } else if (document.querySelector('.screen.active')?.id === 'screen-users') {
+      renderUsers();
     }
   }, err => console.error('User doc listener error:', err));
 }
