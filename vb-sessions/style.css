@@ -971,7 +971,7 @@ body {
 .session-badge.gender-men   { background: rgba(236,72,153,.13);    color: #f472b6;       }
 
 /* ─── Series ref badge (on session card) ─────────────────────────────── */
-.session-badge.series-ref { background: rgba(167,139,250,.1); color: var(--purple); }
+.session-badge.series-ref { background: rgba(20,184,166,.15); color: #2dd4bf; }
 
 /* ─── Series cards ────────────────────────────────────────────────────── */
 .series-card {
@@ -1048,9 +1048,9 @@ body {
 
 /* "S" chip on attendee rows for series members */
 .att-chip.series-chip {
-  border-color: rgba(167,139,250,.6);
-  background:   rgba(167,139,250,.12);
-  color: var(--purple);
+  border-color: rgba(20,184,166,.5);
+  background:   rgba(20,184,166,.15);
+  color: #2dd4bf;
   font-weight: 700;
 }
 
