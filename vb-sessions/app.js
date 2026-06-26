@@ -1447,6 +1447,15 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
     ${(() => {
       const POS_LABELS = { setter: 'Setter', hitter: 'Hitter', middle: 'Middle', libero: 'Libero' };
       if (!_positionQueue.length) return '';
+      const isMySection = !!_myQueueEntry;
+      if (!_isAdmin && !isMySection) return '';
+      const pt     = session.positionTargets || {};
+      const counts = _computePosCounts(attendees, pt);
+      // Positions with open slots (target set but not yet met)
+      const openSlots = Object.entries(pt).filter(([p, t]) => (counts[p] || 0) < t);
+      // Queued players who already have a pending offer
+      const offeredUids = new Set(_positionQueue.filter(e => e.pendingOffer?.position).map(e => e.id));
+
       const byPos = {};
       for (const entry of _positionQueue) {
         for (const pos of (entry.positions || [])) {
@@ -1455,30 +1464,35 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
       }
       const groups = Object.entries(byPos).filter(([,list]) => list.length);
       if (!groups.length) return '';
-      const isMySection = !!_myQueueEntry;
-      if (!_isAdmin && !isMySection) return '';
-      const pt     = session.positionTargets || {};
-      const counts = _computePosCounts(attendees, pt);
+
+      const offerBanner = _isAdmin && openSlots.length ? `
+        <div class="queue-offer-banner">
+          ${openSlots.map(([p, t]) => {
+            const need  = t - (counts[p] || 0);
+            const label = POS_LABELS[p] || p;
+            const alreadyOffered = _positionQueue.some(e => e.pendingOffer?.position === p);
+            return alreadyOffered
+              ? `<span class="queue-offer-row"><span class="queue-offer-label">${label} needs ${need} — offer pending</span></span>`
+              : `<span class="queue-offer-row"><span class="queue-offer-label">${label} needs ${need}</span><button class="icon-btn small" onclick="offerPositionToQueue('${session.id}','${p}')">Send offer →</button></span>`;
+          }).join('')}
+        </div>` : '';
+
       return `
     <div class="detail-section">
       <div class="detail-section-title">Position queues</div>
+      ${offerBanner}
       ${groups.map(([pos, list]) => `
         <div class="pos-queue-group">
           <div class="pos-queue-pos-label ${pos}">${POS_LABELS[pos] || pos} <span class="pos-queue-count">${list.length}</span></div>
           <div class="attendee-list">
             ${list.map((e, i) => {
               const isMe = _currentUser && e.id === _currentUser.uid;
-              const hasOffer = e.pendingOffer?.position === pos;
               return `<div class="attendee-row${isMe ? ' attendee-row-me' : ''}">
                 <span class="attendee-num">${i + 1}</span>
                 ${_isAdmin
                   ? `<button class="attendee-name-btn" onclick="openProfileScreen('${e.id}')">${esc(e.name)}</button>
                      <span class="attendee-email">${esc(e.email || '')}</span>
-                     ${hasOffer
-                       ? `<span class="att-chip queue-offered-chip">Offered</span>`
-                       : (pt[pos] != null && (counts[pos] || 0) < pt[pos])
-                         ? `<button class="icon-btn small" onclick="offerQueueSpot('${session.id}','${e.id}','${pos}')" title="Offer this player a spot">Offer →</button>`
-                         : ''}`
+                     ${e.pendingOffer?.position ? `<span class="att-chip queue-offered-chip">Offered ${POS_LABELS[e.pendingOffer.position] || e.pendingOffer.position}</span>` : ''}`
                   : `<span class="attendee-name-btn">${isMe ? 'You' : '—'}</span>`}
               </div>`;
             }).join('')}
@@ -1737,12 +1751,21 @@ window.leavePositionQueue = async function(sessionId) {
   }
 };
 
-window.offerQueueSpot = async function(sessionId, uid, position) {
+// Admin sends a position offer to ALL players currently in the queue.
+// First to accept gets the spot.
+window.offerPositionToQueue = async function(sessionId, position) {
+  if (!_positionQueue.length) return;
   try {
-    await _posWlRef(sessionId).doc(uid).update({
-      pendingOffer: { position, offeredAt: firebase.firestore.FieldValue.serverTimestamp() },
-    });
-    showToast('Offer sent.');
+    const batch = firebase.firestore().batch();
+    for (const entry of _positionQueue) {
+      if (!entry.pendingOffer) {
+        batch.update(_posWlRef(sessionId).doc(entry.id), {
+          pendingOffer: { position, offeredAt: firebase.firestore.FieldValue.serverTimestamp() },
+        });
+      }
+    }
+    await batch.commit();
+    showToast(`Offer sent to ${_positionQueue.filter(e => !e.pendingOffer).length} players.`);
     await openSession(sessionId);
   } catch(e) {
     console.error('Offer failed:', e);
@@ -1750,9 +1773,20 @@ window.offerQueueSpot = async function(sessionId, uid, position) {
   }
 };
 
+// Player accepts the offered position. First to commit wins.
 window.acceptQueueOffer = async function(sessionId) {
   if (!_currentUser || !_myQueueEntry?.pendingOffer?.position) return;
   const position = _myQueueEntry.pendingOffer.position;
+  const pt     = _currentSession?.positionTargets || {};
+  const counts = _computePosCounts(_currentAttendees, pt);
+  if (pt[position] != null && (counts[position] || 0) >= pt[position]) {
+    showToast('This spot was just taken — too slow!', 'error');
+    await _posWlRef(sessionId).doc(_currentUser.uid).update({
+      pendingOffer: firebase.firestore.FieldValue.delete(),
+    });
+    await openSession(sessionId);
+    return;
+  }
   const btn = document.querySelector('#detail-footer .cta-btn');
   if (btn) btn.disabled = true;
   try {
@@ -1794,15 +1828,18 @@ window.acceptQueueOffer = async function(sessionId) {
   }
 };
 
+// Player declines — clears the offer but stays in queue for their original position.
 window.declineQueueOffer = async function(sessionId) {
   if (!_currentUser) return;
   try {
-    await _posWlRef(sessionId).doc(_currentUser.uid).delete();
-    showToast('Offer declined.');
+    await _posWlRef(sessionId).doc(_currentUser.uid).update({
+      pendingOffer: firebase.firestore.FieldValue.delete(),
+    });
+    showToast('Offer declined. You\'re still in the queue.');
     await openSession(sessionId);
   } catch(e) {
     console.error('Decline offer failed:', e);
-    showToast('Couldn\'t decline offer. Try again.', 'error');
+    showToast('Couldn\'t decline. Try again.', 'error');
   }
 };
 

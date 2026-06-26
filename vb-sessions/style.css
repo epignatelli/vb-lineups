@@ -631,6 +631,11 @@ body {
 .pos-queue-pos-label.middle { color: var(--purple); }
 .pos-queue-pos-label.libero { color: var(--green); }
 .pos-queue-count { font-weight: 400; opacity: .7; }
+.queue-offer-banner { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.queue-offer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+                   padding: 8px 10px; background: var(--amber-bg);
+                   border: 1px solid rgba(240,165,0,.25); border-radius: var(--radius-sm); }
+.queue-offer-label { font-size: 12px; font-weight: 600; color: var(--amber); }
 .attendee-row-me .attendee-name-btn { color: var(--amber); font-weight: 700; }
 
 /* queue modal */
