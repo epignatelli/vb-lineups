@@ -92,6 +92,14 @@ service cloud.firestore {
       allow write: if false; // written only via Cloud Functions (Admin SDK)
     }
 
+    match /sessions/{sessionId}/positionWaitingList/{uid} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+                            && request.auth.uid == uid
+                            && !request.resource.data.keys().hasAny(['pendingOffer']);
+      allow delete: if request.auth != null && (request.auth.uid == uid || isAdmin());
+    }
+
     match /sessions/{sessionId}/teamVotes/{uid} {
       allow read: if request.auth != null;
       // Only session attendees can write their own vote doc.

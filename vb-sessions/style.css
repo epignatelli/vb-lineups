@@ -604,6 +604,23 @@ body {
 .pos-fill-chip.libero { background: var(--green-bg);        border-color: rgba(34,201,122,.35);  color: var(--green); }
 .pos-fill-chip.full   { background: rgba(240,165,0,.15);    border-color: rgba(240,165,0,.5);    color: var(--amber); }
 
+/* position queue section */
+.pos-queue-group { margin-bottom: 14px; }
+.pos-queue-group:last-child { margin-bottom: 0; }
+.pos-queue-pos-label { font-size: 11px; font-weight: 800; letter-spacing: .08em;
+                       text-transform: uppercase; margin-bottom: 6px; }
+.pos-queue-pos-label.setter { color: #93c5fd; }
+.pos-queue-pos-label.hitter { color: var(--amber); }
+.pos-queue-pos-label.middle { color: var(--purple); }
+.pos-queue-pos-label.libero { color: var(--green); }
+.pos-queue-count { font-weight: 400; opacity: .7; }
+.attendee-row-me .attendee-name-btn { color: var(--amber); font-weight: 700; }
+
+/* queue modal */
+.pos-queue-check-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.pos-queue-check-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--amber); flex-shrink: 0; }
+.pos-queue-check-label { font-size: 15px; color: var(--text); }
+
 .toggle-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .toggle-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--amber); flex-shrink: 0; }
 .toggle-label-text { font-size: 14px; color: var(--text); }

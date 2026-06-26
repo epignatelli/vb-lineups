@@ -47,6 +47,8 @@ let _currentSession         = null;   // session data for the open detail panel
 let _currentAttendees       = [];     // attendee list for the open session (used for CSV export)
 let _teamVoteMap            = {};     // partitionKey → vote count (for open session)
 let _myTeamVote             = '';     // partition key the current user voted for
+let _positionQueue          = [];     // positionWaitingList docs for the open session
+let _myQueueEntry           = null;   // current user's positionWaitingList entry (or null)
 
 // Handle return from Stripe Checkout before Firebase initialises.
 // Stripe appends ?checkout=success|cancelled&session=ID to the success/cancel URLs.
@@ -115,6 +117,7 @@ async function callFn(name, body) {
 function _sessionsRef()              { return getDb().collection('sessions'); }
 function _sessionRef(id)             { return _sessionsRef().doc(id); }
 function _attendeesRef(sessionId)    { return _sessionRef(sessionId).collection('attendees'); }
+function _posWlRef(sessionId)        { return _sessionRef(sessionId).collection('positionWaitingList'); }
 function _sessionHistoryRef(uid)     { return _userRef(uid).collection('sessions'); }
 function _usersRef()              { return getDb().collection('users'); }
 function _userRef(uid)            { return _usersRef().doc(uid); }
@@ -1025,6 +1028,8 @@ async function openSession(id) {
     _activeTeamCount = 0; // reset so default is re-derived from player count
     _teamVoteMap = {};
     _myTeamVote  = '';
+    _positionQueue = [];
+    _myQueueEntry  = null;
     let attendees   = [];
     let isAttending = false;
 
@@ -1034,14 +1039,21 @@ async function openSession(id) {
     if (_currentUser) {
       const wlRef    = getDb().collection('sessions').doc(id).collection('waitingList');
       const votesRef = getDb().collection('sessions').doc(id).collection('teamVotes');
-      const [attendeesSnap, ownWlSnap, votesSnap] = await Promise.all([
+      const hasPosTargets = !!(session.positionTargets && Object.keys(session.positionTargets).length);
+      const [attendeesSnap, ownWlSnap, votesSnap, posWlSnap] = await Promise.all([
         _fsGet(_attendeesRef(id).orderBy('joinedAt', 'asc')),
         _fsGet(wlRef.doc(_currentUser.uid)),
         _fsGet(votesRef),
+        hasPosTargets ? _fsGet(_posWlRef(id).orderBy('joinedAt', 'asc')) : Promise.resolve(null),
       ]);
       attendees         = attendeesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       _currentAttendees = attendees;
       isAttending       = attendees.some(a => a.id === _currentUser.uid);
+
+      if (posWlSnap) {
+        _positionQueue = posWlSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        _myQueueEntry  = _positionQueue.find(e => e.id === _currentUser.uid) || null;
+      }
 
       _teamVoteMap = {};
       _myTeamVote  = '';
@@ -1382,6 +1394,41 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
       </div>
     </div>` : ''}
 
+    ${(() => {
+      const POS_LABELS = { setter: 'Setter', hitter: 'Hitter', middle: 'Middle', libero: 'Libero' };
+      if (!_positionQueue.length) return '';
+      const byPos = {};
+      for (const entry of _positionQueue) {
+        for (const pos of (entry.positions || [])) {
+          (byPos[pos] = byPos[pos] || []).push(entry);
+        }
+      }
+      const groups = Object.entries(byPos).filter(([,list]) => list.length);
+      if (!groups.length) return '';
+      const isMySection = !!_myQueueEntry;
+      if (!_isAdmin && !isMySection) return '';
+      return `
+    <div class="detail-section">
+      <div class="detail-section-title">Position queues</div>
+      ${groups.map(([pos, list]) => `
+        <div class="pos-queue-group">
+          <div class="pos-queue-pos-label ${pos}">${POS_LABELS[pos] || pos} <span class="pos-queue-count">${list.length}</span></div>
+          <div class="attendee-list">
+            ${list.map((e, i) => {
+              const isMe = _currentUser && e.id === _currentUser.uid;
+              return `<div class="attendee-row${isMe ? ' attendee-row-me' : ''}">
+                <span class="attendee-num">${i + 1}</span>
+                ${_isAdmin
+                  ? `<button class="attendee-name-btn" onclick="openProfileScreen('${e.id}')">${esc(e.name)}</button>
+                     <span class="attendee-email">${esc(e.email || '')}</span>`
+                  : `<span class="attendee-name-btn">${isMe ? 'You' : '—'}</span>`}
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`).join('')}
+    </div>`;
+    })()}
+
     ${_isAdmin && session.refunds && session.refunds.length ? `
     <div class="detail-section">
       <div class="detail-section-title">Refunds (${session.refunds.length})</div>
@@ -1407,6 +1454,14 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
     : 'Cancel my registration';
 
   const canStart = _isAdmin || (_currentUser && session.coachUid && session.coachUid === _currentUser.uid);
+
+  // Compute whether all position targets are met (relevant for position-queue routing)
+  const _pt = session.positionTargets || {};
+  const _ptKeys = Object.keys(_pt);
+  const _allTargetsFull = _ptKeys.length > 0 && _ptKeys.every(p => {
+    const cnt = attendees.filter(a => (a.positions || []).includes(p)).length;
+    return cnt >= _pt[p];
+  });
   const msgBtn = _isAdmin && !isCancelled
     ? `<button class="cta-btn secondary-btn" onclick="openMessageForm('${session.id}')">✉ Message attendees</button>`
     : '';
@@ -1451,6 +1506,16 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
   } else if (isAttending) {
     const cancelBtn = seriesReg ? dropOutBtn : `<button class="cta-btn secondary-btn" onclick="cancelRegistration('${session.id}')">${cancelLabel}</button>`;
     footer.innerHTML = `${cancelBtn}${msgBtn}`;
+  } else if (_myQueueEntry && !deadlinePassed) {
+    const POS_LABELS = { setter: 'Setter', hitter: 'Hitter', middle: 'Middle', libero: 'Libero' };
+    const queuedPos  = (_myQueueEntry.positions || []).map(p => POS_LABELS[p] || p).join(' · ');
+    const queueNums  = (_myQueueEntry.positions || []).map(p => {
+      const qi = (_positionQueue.filter(e => (e.positions || []).includes(p))).findIndex(e => e.id === _currentUser.uid) + 1;
+      return `${POS_LABELS[p] || p} #${qi}`;
+    }).join(' · ');
+    footer.innerHTML = `
+      <span class="waiting-pos">In queue — ${queueNums}</span>
+      <button class="cta-btn secondary-btn" onclick="leavePositionQueue('${session.id}')">Leave queue</button>${msgBtn}`;
   } else if (seriesJoin) {
     footer.innerHTML = `${seriesJoin}${msgBtn}`;
   } else if (myWaitingListPos !== 0 && !isFull && !deadlinePassed) {
@@ -1460,6 +1525,8 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
     footer.innerHTML = `
       <span class="waiting-pos">${posLabel}</span>
       <button class="cta-btn secondary-btn" onclick="leaveWaitingList('${session.id}')">Leave list</button>${msgBtn}`;
+  } else if (_allTargetsFull && !deadlinePassed) {
+    footer.innerHTML = `<button class="cta-btn" onclick="openQueueModal('${session.id}')">Join queue →</button>${msgBtn}`;
   } else if (isFull && !deadlinePassed) {
     footer.innerHTML = `<button class="cta-btn" onclick="joinWaitingList('${session.id}')">Join waiting list →</button>${msgBtn}`;
   } else if (deadlinePassed) {
@@ -1470,6 +1537,85 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
 }
 
 function registerFree(sessionId) { return _doRegister(sessionId, { feeWaived: true }); }
+
+// ─── Position queue ────────────────────────────────────────────────────────────
+
+const POS_LABELS_FULL = { setter: 'Setter', hitter: 'Hitter', middle: 'Middle', libero: 'Libero' };
+
+function _showQueueModal(sessionId, suggestedPositions) {
+  const existing = document.getElementById('queue-modal-overlay');
+  if (existing) existing.remove();
+
+  const allPositions = Object.keys(_currentSession?.positionTargets || {});
+  const rows = allPositions.map(pos => {
+    const checked = suggestedPositions.includes(pos);
+    const lbl = POS_LABELS_FULL[pos] || pos;
+    return `<label class="pos-queue-check-row">
+      <input type="checkbox" value="${pos}" ${checked ? 'checked' : ''} />
+      <span class="pos-queue-check-label">${lbl}</span>
+    </label>`;
+  }).join('');
+
+  const el = document.createElement('div');
+  el.id = 'queue-modal-overlay';
+  el.className = 'overlay open';
+  el.innerHTML = `
+    <div class="panel" style="max-width:420px">
+      <div class="panel-header">
+        <span class="panel-title">Join position queue</span>
+      </div>
+      <p style="font-size:14px;color:var(--muted);line-height:1.55;padding-bottom:16px">
+        The positions you selected are full. Choose which queues to join — you'll be notified if a spot opens up for you.
+      </p>
+      <div id="queue-modal-positions" style="display:flex;flex-direction:column;gap:10px;padding-bottom:20px">${rows}</div>
+      <div id="queue-modal-error" style="color:var(--red);font-size:13px;min-height:18px;margin-bottom:12px"></div>
+      <button class="cta-btn" onclick="_confirmJoinQueue('${sessionId}')">Join queue →</button>
+      <button class="cta-btn secondary-btn" style="margin-top:8px" onclick="document.getElementById('queue-modal-overlay').remove()">Cancel</button>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+window.openQueueModal = function(sessionId) {
+  if (!_currentUser) { _pendingJoinSessionId = sessionId; handleAuthClick(); return; }
+  const allPositions = Object.keys(_currentSession?.positionTargets || {});
+  _showQueueModal(sessionId, allPositions);
+};
+
+window._confirmJoinQueue = async function(sessionId) {
+  const checked = Array.from(document.querySelectorAll('#queue-modal-positions input:checked')).map(el => el.value);
+  if (!checked.length) {
+    document.getElementById('queue-modal-error').textContent = 'Select at least one position.';
+    return;
+  }
+  const btn = document.querySelector('#queue-modal-overlay .cta-btn');
+  btn.disabled = true;
+  try {
+    await _posWlRef(sessionId).doc(_currentUser.uid).set({
+      name:      _currentUser.displayName || _currentUser.email,
+      email:     _currentUser.email || '',
+      uid:       _currentUser.uid,
+      positions: checked,
+      joinedAt:  firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    document.getElementById('queue-modal-overlay').remove();
+    await openSession(sessionId);
+  } catch(e) {
+    console.error('Join queue failed:', e);
+    document.getElementById('queue-modal-error').textContent = 'Couldn\'t join queue. Try again.';
+    btn.disabled = false;
+  }
+};
+
+window.leavePositionQueue = async function(sessionId) {
+  if (!_currentUser) return;
+  try {
+    await _posWlRef(sessionId).doc(_currentUser.uid).delete();
+    await openSession(sessionId);
+  } catch(e) {
+    console.error('Leave queue failed:', e);
+    showToast('Couldn\'t leave queue. Try again.');
+  }
+};
 
 async function register(sessionId) {
   if (!_currentUser) {
@@ -1639,6 +1785,23 @@ async function _doRegister(sessionId, extra = {}) {
     if (!extra.gender) {
       const g = userDoc.data()?.gender;
       if (g) extra = { ...extra, gender: g };
+    }
+
+    // Position-target check: if all chosen positions are full → route to queue modal.
+    const pt = session.positionTargets || {};
+    if (session.askPositions && Object.keys(pt).length && (extra.positions || []).length) {
+      const counts = {};
+      for (const p of Object.keys(pt))
+        counts[p] = _currentAttendees.filter(a => (a.positions || []).includes(p)).length;
+      const full = (extra.positions).filter(p => pt[p] != null && counts[p] >= pt[p]);
+      const open = (extra.positions).filter(p => !pt[p] || counts[p] < pt[p]);
+      if (open.length === 0) {
+        if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+        _showQueueModal(sessionId, full);
+        return;
+      }
+      // Drop full positions — register with open ones only.
+      extra = { ...extra, positions: open };
     }
 
     // Paid session → redirect to Stripe Checkout (unless fee is waived by admin).
