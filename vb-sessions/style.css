@@ -238,12 +238,16 @@ body {
 
 .home-content { flex: 1; overflow-y: auto; padding: 20px 0; padding-bottom: calc(92px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 24px; }
 .topbar-new-btn {
-  background: var(--amber); color: #0f1117; border: none;
+  background: var(--amber-bg); color: var(--amber);
+  border: 1px solid rgba(240,165,0,.4);
   font-family: var(--sport); font-size: 13px; font-weight: 700; letter-spacing: .05em;
-  padding: 6px 12px; border-radius: var(--radius-sm);
+  padding: 5px 11px; border-radius: var(--radius-sm);
   cursor: pointer; white-space: nowrap;
 }
-#home-new-pass-btn { background: #2dd4bf; }
+#home-new-pass-btn {
+  background: rgba(20,184,166,.15); color: #2dd4bf;
+  border-color: rgba(45,212,191,.4);
+}
 .home-empty { color: var(--muted); font-size: 14px; text-align: center; padding: 40px 0; }
 .link-btn { background: none; border: none; color: var(--amber); font: inherit; cursor: pointer; text-decoration: underline; padding: 0; }
 
