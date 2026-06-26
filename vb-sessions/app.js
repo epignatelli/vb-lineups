@@ -1457,6 +1457,8 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
       if (!groups.length) return '';
       const isMySection = !!_myQueueEntry;
       if (!_isAdmin && !isMySection) return '';
+      const pt     = session.positionTargets || {};
+      const counts = _computePosCounts(attendees, pt);
       return `
     <div class="detail-section">
       <div class="detail-section-title">Position queues</div>
@@ -1466,11 +1468,17 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
           <div class="attendee-list">
             ${list.map((e, i) => {
               const isMe = _currentUser && e.id === _currentUser.uid;
+              const hasOffer = e.pendingOffer?.position === pos;
               return `<div class="attendee-row${isMe ? ' attendee-row-me' : ''}">
                 <span class="attendee-num">${i + 1}</span>
                 ${_isAdmin
                   ? `<button class="attendee-name-btn" onclick="openProfileScreen('${e.id}')">${esc(e.name)}</button>
-                     <span class="attendee-email">${esc(e.email || '')}</span>`
+                     <span class="attendee-email">${esc(e.email || '')}</span>
+                     ${hasOffer
+                       ? `<span class="att-chip queue-offered-chip">Offered</span>`
+                       : (pt[pos] != null && (counts[pos] || 0) < pt[pos])
+                         ? `<button class="icon-btn small" onclick="offerQueueSpot('${session.id}','${e.id}','${pos}')" title="Offer this player a spot">Offer →</button>`
+                         : ''}`
                   : `<span class="attendee-name-btn">${isMe ? 'You' : '—'}</span>`}
               </div>`;
             }).join('')}
@@ -1562,17 +1570,27 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
     footer.innerHTML = `${cancelBtn}${msgBtn}`;
   } else if (_myQueueEntry && !deadlinePassed) {
     const POS_LABELS = { setter: 'Setter', hitter: 'Hitter', middle: 'Middle', libero: 'Libero' };
-    const queuedPos  = (_myQueueEntry.positions || []).map(p => POS_LABELS[p] || p).join(' · ');
-    const queueNums  = (_myQueueEntry.positions || []).map(p => {
-      const qi = (_positionQueue.filter(e => (e.positions || []).includes(p))).findIndex(e => e.id === _currentUser.uid) + 1;
-      return `${POS_LABELS[p] || p} #${qi}`;
-    }).join(' · ');
-    footer.innerHTML = `
-      <span class="waiting-pos">In queue — ${queueNums}</span>
-      <div style="display:flex;gap:8px">
-        <button class="cta-btn secondary-btn" onclick="editPositionQueue('${session.id}')">Edit positions</button>
-        <button class="cta-btn secondary-btn" onclick="leavePositionQueue('${session.id}')">Leave queue</button>
-      </div>${msgBtn}`;
+    const offer = _myQueueEntry.pendingOffer;
+    if (offer?.position) {
+      const posLabel = POS_LABELS[offer.position] || offer.position;
+      footer.innerHTML = `
+        <span class="waiting-pos offer-waiting-pos">You've been offered a <strong>${posLabel}</strong> spot!</span>
+        <div style="display:flex;gap:8px">
+          <button class="cta-btn" onclick="acceptQueueOffer('${session.id}')">Accept</button>
+          <button class="cta-btn secondary-btn" onclick="declineQueueOffer('${session.id}')">Decline</button>
+        </div>${msgBtn}`;
+    } else {
+      const queueNums = (_myQueueEntry.positions || []).map(p => {
+        const qi = (_positionQueue.filter(e => (e.positions || []).includes(p))).findIndex(e => e.id === _currentUser.uid) + 1;
+        return `${POS_LABELS[p] || p} #${qi}`;
+      }).join(' · ');
+      footer.innerHTML = `
+        <span class="waiting-pos">In queue — ${queueNums}</span>
+        <div style="display:flex;gap:8px">
+          <button class="cta-btn secondary-btn" onclick="editPositionQueue('${session.id}')">Edit positions</button>
+          <button class="cta-btn secondary-btn" onclick="leavePositionQueue('${session.id}')">Leave queue</button>
+        </div>${msgBtn}`;
+    }
   } else if (seriesJoin) {
     footer.innerHTML = `${seriesJoin}${msgBtn}`;
   } else if (myWaitingListPos !== 0 && !isFull && !deadlinePassed) {
@@ -1716,6 +1734,75 @@ window.leavePositionQueue = async function(sessionId) {
   } catch(e) {
     console.error('Leave queue failed:', e);
     showToast('Couldn\'t leave queue. Try again.');
+  }
+};
+
+window.offerQueueSpot = async function(sessionId, uid, position) {
+  try {
+    await _posWlRef(sessionId).doc(uid).update({
+      pendingOffer: { position, offeredAt: firebase.firestore.FieldValue.serverTimestamp() },
+    });
+    showToast('Offer sent.');
+    await openSession(sessionId);
+  } catch(e) {
+    console.error('Offer failed:', e);
+    showToast('Couldn\'t send offer. Try again.', 'error');
+  }
+};
+
+window.acceptQueueOffer = async function(sessionId) {
+  if (!_currentUser || !_myQueueEntry?.pendingOffer?.position) return;
+  const position = _myQueueEntry.pendingOffer.position;
+  const btn = document.querySelector('#detail-footer .cta-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const session = _currentSession;
+    if ((session?.cost || 0) > 0) {
+      const base = window.location.origin + window.location.pathname;
+      const data = await callFn('createCheckoutSession', {
+        sessionId,
+        successUrl: `${base}?checkout=success&session=${sessionId}`,
+        cancelUrl:  `${base}?checkout=cancelled&session=${sessionId}`,
+        positions:  [position],
+      });
+      window.location.href = data.url;
+      return;
+    }
+    const userDoc = await _userRef(_currentUser.uid).get();
+    const batch = firebase.firestore().batch();
+    batch.set(_attendeesRef(sessionId).doc(_currentUser.uid), {
+      name:         _currentUser.displayName || _currentUser.email,
+      email:        _currentUser.email || '',
+      joinedAt:     firebase.firestore.FieldValue.serverTimestamp(),
+      paid:         false,
+      feeWaived:    false,
+      photoConsent: userDoc.data()?.photoConsent?.given ?? false,
+      positions:    [position],
+      gender:       userDoc.data()?.gender || '',
+    });
+    batch.update(_sessionRef(sessionId), {
+      attendeeCount: firebase.firestore.FieldValue.increment(1),
+    });
+    batch.delete(_posWlRef(sessionId).doc(_currentUser.uid));
+    await batch.commit();
+    _gaEvent('join_session', { session_id: sessionId });
+    await openSession(sessionId);
+  } catch(e) {
+    console.error('Accept offer failed:', e);
+    showToast('Couldn\'t accept offer. Try again.', 'error');
+    if (btn) btn.disabled = false;
+  }
+};
+
+window.declineQueueOffer = async function(sessionId) {
+  if (!_currentUser) return;
+  try {
+    await _posWlRef(sessionId).doc(_currentUser.uid).delete();
+    showToast('Offer declined.');
+    await openSession(sessionId);
+  } catch(e) {
+    console.error('Decline offer failed:', e);
+    showToast('Couldn\'t decline offer. Try again.', 'error');
   }
 };
 
