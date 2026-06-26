@@ -1767,16 +1767,86 @@ window._confirmEditQueue = async function(sessionId) {
     document.getElementById('queue-modal-error').textContent = 'Select at least one position, or leave the queue.';
     return;
   }
-  const btn = document.querySelector('#queue-modal-overlay .cta-btn');
-  btn.disabled = true;
+
+  // Check if any newly added positions have open slots — offer direct registration instead.
+  const current = _myQueueEntry?.positions || [];
+  const pt = _currentSession?.positionTargets || {};
+  const counts = _computePosCounts(_currentAttendees, pt);
+  const newlyAdded  = checked.filter(p => !current.includes(p));
+  const openAmongNew = newlyAdded.filter(p => pt[p] != null && (counts[p] || 0) < pt[p]);
+
+  if (openAmongNew.length) {
+    _showEditQueueOpenSlotModal(sessionId, checked, openAmongNew);
+    return;
+  }
+
+  await _saveEditQueue(sessionId, checked);
+};
+
+window._saveEditQueue = async function _saveEditQueue(sessionId, positions) {
   try {
-    await _posWlRef(sessionId).doc(_currentUser.uid).update({ positions: checked });
-    document.getElementById('queue-modal-overlay').remove();
+    await _posWlRef(sessionId).doc(_currentUser.uid).update({ positions });
+    document.getElementById('queue-modal-overlay')?.remove();
     await openSession(sessionId);
   } catch(e) {
     console.error('Edit queue failed:', e);
     document.getElementById('queue-modal-error').textContent = 'Couldn\'t update queue. Try again.';
-    btn.disabled = false;
+  }
+};
+
+function _showEditQueueOpenSlotModal(sessionId, allChecked, openPositions) {
+  const existing = document.getElementById('queue-modal-overlay');
+  if (existing) existing.remove();
+
+  const openLabels = openPositions.map(p => POS_LABELS_FULL[p] || p);
+  const openStr = openLabels.length === 1 ? openLabels[0] : openLabels.slice(0,-1).join(', ') + ' and ' + openLabels.at(-1);
+  const stillFull = allChecked.filter(p => !openPositions.includes(p));
+
+  const el = document.createElement('div');
+  el.id = 'queue-modal-overlay';
+  el.className = 'overlay open';
+  el.innerHTML = `
+    <div class="panel" style="max-width:420px">
+      <div class="panel-header"><span class="panel-title">Free spot available</span></div>
+      <p style="font-size:14px;color:var(--muted);line-height:1.55;padding-bottom:20px">
+        There's a free <strong style="color:var(--text)">${openStr}</strong> spot — would you like to register now instead of joining the queue?
+      </p>
+      <button class="cta-btn" onclick="_confirmEditQueueRegister('${sessionId}', ${JSON.stringify(openPositions)}, ${JSON.stringify(stillFull)})">Register as ${openStr} →</button>
+      <button class="cta-btn secondary-btn" style="margin-top:8px" onclick="_saveEditQueue('${sessionId}', ${JSON.stringify(allChecked)})">Join ${openStr} queue instead</button>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+window._confirmEditQueueRegister = async function(sessionId, openPositions, remainingQueuePositions) {
+  const btn = document.querySelector('#queue-modal-overlay .cta-btn');
+  if (btn) btn.disabled = true;
+  try {
+    // Register directly for open positions
+    const userDoc = await _userRef(_currentUser.uid).get();
+    await _attendeesRef(sessionId).doc(_currentUser.uid).set({
+      name:         _currentUser.displayName || _currentUser.email,
+      email:        _currentUser.email || '',
+      joinedAt:     firebase.firestore.FieldValue.serverTimestamp(),
+      paid:         false,
+      feeWaived:    false,
+      photoConsent: userDoc.data()?.photoConsent?.given ?? false,
+      positions:    openPositions,
+      gender:       userDoc.data()?.gender || '',
+    });
+    await _sessionRef(sessionId).update({ attendeeCount: firebase.firestore.FieldValue.increment(1) });
+
+    // Update or remove queue entry
+    if (remainingQueuePositions.length) {
+      await _posWlRef(sessionId).doc(_currentUser.uid).update({ positions: remainingQueuePositions });
+    } else {
+      await _posWlRef(sessionId).doc(_currentUser.uid).delete();
+    }
+
+    document.getElementById('queue-modal-overlay')?.remove();
+    await openSession(sessionId);
+  } catch(e) {
+    console.error('Queue register failed:', e);
+    if (btn) btn.disabled = false;
   }
 };
 
