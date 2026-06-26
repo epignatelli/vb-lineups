@@ -1000,10 +1000,19 @@ function _renderSessionCard(s) {
   const genderLabel = SESSION_GENDERS.find(g => g.value === s.gender)?.label || '';
   return `
     <div class="session-card" onclick="openSession('${s.id}')">
-      <div class="session-card-main">
-        <div class="session-date">${esc(dateStr)}${timeStr ? ` · ${esc(timeStr)}` : ''}</div>
-        <div class="session-venue">${esc(s.venue || '—')}${s.coach ? ` · ${esc(s.coach)}` : ''}</div>
-        ${s.description ? `<div class="session-desc">${esc(s.description)}</div>` : ''}
+      <div class="session-card-top">
+        <div class="session-card-main">
+          <div class="session-date">${esc(dateStr)}${timeStr ? ` · ${esc(timeStr)}` : ''}</div>
+          <div class="session-venue">${esc(s.venue || '—')}${s.coach ? ` · ${esc(s.coach)}` : ''}</div>
+          ${s.description ? `<div class="session-desc">${esc(s.description)}</div>` : ''}
+        </div>
+        <div class="session-card-aside">
+          <div class="session-aside-counts">
+            <span class="session-meta-item">👥 ${countStr}</span>
+            <span class="session-meta-item">${esc(costStr)}</span>
+          </div>
+          ${s.seriesName && !_activeSeriesFilter ? `<span class="session-badge series-ref">${esc(s.seriesName)}</span>` : ''}
+        </div>
       </div>
       <div class="session-card-meta">
         <span class="session-badge ${statusClass}">${statusLabel}</span>
@@ -1011,11 +1020,6 @@ function _renderSessionCard(s) {
         ${typeLabel    ? `<span class="session-badge type-${esc(s.type)}">${esc(typeLabel)}</span>` : ''}
         ${genderLabel  ? `<span class="session-badge gender-${esc(s.gender)}">${esc(genderLabel)}</span>` : ''}
         ${_isAdmin && s.coach && s.coachFee > 0 && s.status === 'closed' ? _coachPayBadge(s) : ''}
-        <span class="session-meta-right">
-          ${s.seriesName && !_activeSeriesFilter ? `<span class="session-badge series-ref">${esc(s.seriesName)}</span>` : ''}
-          <span class="session-meta-item">👥 ${countStr}</span>
-          <span class="session-meta-item">${esc(costStr)}</span>
-        </span>
       </div>
       ${(_isAdmin || (_isProvider && _currentUser && s.providerUid === _currentUser.uid)) ? `
         <div class="session-admin-btns" onclick="event.stopPropagation()">
