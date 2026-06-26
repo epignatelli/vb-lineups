@@ -49,6 +49,8 @@ let _teamVoteMap            = {};     // partitionKey → vote count (for open s
 let _myTeamVote             = '';     // partition key the current user voted for
 let _positionQueue          = [];     // positionWaitingList docs for the open session
 let _myQueueEntry           = null;   // current user's positionWaitingList entry (or null)
+let _pendingEditQueueOpen   = [];     // open positions detected during edit queue flow
+let _pendingEditQueueFull   = [];     // full positions to keep in queue during edit queue flow
 
 // Handle return from Stripe Checkout before Firebase initialises.
 // Stripe appends ?checkout=success|cancelled&session=ID to the success/cancel URLs.
@@ -1798,9 +1800,11 @@ function _showEditQueueOpenSlotModal(sessionId, allChecked, openPositions) {
   const existing = document.getElementById('queue-modal-overlay');
   if (existing) existing.remove();
 
+  _pendingEditQueueOpen = openPositions;
+  _pendingEditQueueFull = allChecked.filter(p => !openPositions.includes(p));
+
   const openLabels = openPositions.map(p => POS_LABELS_FULL[p] || p);
   const openStr = openLabels.length === 1 ? openLabels[0] : openLabels.slice(0,-1).join(', ') + ' and ' + openLabels.at(-1);
-  const stillFull = allChecked.filter(p => !openPositions.includes(p));
 
   const el = document.createElement('div');
   el.id = 'queue-modal-overlay';
@@ -1811,17 +1815,18 @@ function _showEditQueueOpenSlotModal(sessionId, allChecked, openPositions) {
       <p style="font-size:14px;color:var(--muted);line-height:1.55;padding-bottom:20px">
         There's a free <strong style="color:var(--text)">${openStr}</strong> spot — would you like to register now instead of joining the queue?
       </p>
-      <button class="cta-btn" onclick="_confirmEditQueueRegister('${sessionId}', ${JSON.stringify(openPositions)}, ${JSON.stringify(stillFull)})">Register as ${openStr} →</button>
+      <button class="cta-btn" onclick="_confirmEditQueueRegister('${sessionId}')">Register as ${openStr} →</button>
       <button class="cta-btn secondary-btn" style="margin-top:8px" onclick="document.getElementById('queue-modal-overlay').remove()">Cancel</button>
     </div>`;
   document.body.appendChild(el);
 }
 
-window._confirmEditQueueRegister = async function(sessionId, openPositions, remainingQueuePositions) {
+window._confirmEditQueueRegister = async function(sessionId) {
+  const openPositions       = _pendingEditQueueOpen;
+  const remainingQueuePositions = _pendingEditQueueFull;
   const btn = document.querySelector('#queue-modal-overlay .cta-btn');
   if (btn) btn.disabled = true;
   try {
-    // Register directly for open positions
     const userDoc = await _userRef(_currentUser.uid).get();
     await _attendeesRef(sessionId).doc(_currentUser.uid).set({
       name:         _currentUser.displayName || _currentUser.email,
@@ -1835,7 +1840,6 @@ window._confirmEditQueueRegister = async function(sessionId, openPositions, rema
     });
     await _sessionRef(sessionId).update({ attendeeCount: firebase.firestore.FieldValue.increment(1) });
 
-    // Update or remove queue entry
     if (remainingQueuePositions.length) {
       await _posWlRef(sessionId).doc(_currentUser.uid).update({ positions: remainingQueuePositions });
     } else {
