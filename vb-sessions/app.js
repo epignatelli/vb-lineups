@@ -1572,11 +1572,16 @@ function _showMixedPositionModal(sessionId, openPositions, fullPositions, extra)
   const existing = document.getElementById('mixed-pos-overlay');
   if (existing) existing.remove();
 
-  const openLabels = openPositions.map(p => POS_LABELS_FULL[p] || p).join(', ');
-  const queueRows  = fullPositions.map(p => `
+  const fullLabels = fullPositions.map(p => POS_LABELS_FULL[p] || p);
+  const openLabels = openPositions.map(p => POS_LABELS_FULL[p] || p);
+  const fullStr  = fullLabels.length === 1
+    ? `The ${fullLabels[0]} slots are full`
+    : `The ${fullLabels.slice(0, -1).join(', ')} and ${fullLabels.at(-1)} slots are full`;
+  const openStr  = openLabels.join(' and ');
+  const queueRows = fullPositions.map(p => `
     <label class="pos-queue-check-row">
       <input type="checkbox" value="${p}" checked />
-      <span class="pos-queue-check-label">${POS_LABELS_FULL[p] || p} <span style="color:var(--muted);font-size:12px">— full</span></span>
+      <span class="pos-queue-check-label">Join the ${POS_LABELS_FULL[p] || p} queue</span>
     </label>`).join('');
 
   const el = document.createElement('div');
@@ -1584,14 +1589,13 @@ function _showMixedPositionModal(sessionId, openPositions, fullPositions, extra)
   el.className = 'overlay open';
   el.innerHTML = `
     <div class="panel" style="max-width:420px">
-      <div class="panel-header"><span class="panel-title">Some positions are full</span></div>
-      <p style="font-size:14px;color:var(--muted);line-height:1.55;padding-bottom:16px">
-        You'll be registered as <strong style="color:var(--text)">${openLabels}</strong>.
+      <div class="panel-header"><span class="panel-title">Heads up</span></div>
+      <p style="font-size:14px;color:var(--muted);line-height:1.55;padding-bottom:20px">
+        ${fullStr} — would you like to be registered as <strong style="color:var(--text)">${openStr}</strong> only?
       </p>
-      <p style="font-size:13px;color:var(--muted);padding-bottom:12px">Also join the queue for:</p>
-      <div id="mixed-pos-queues" style="display:flex;flex-direction:column;gap:10px;padding-bottom:20px">${queueRows}</div>
+      ${queueRows ? `<div id="mixed-pos-queues" style="display:flex;flex-direction:column;gap:12px;padding-bottom:20px">${queueRows}</div>` : ''}
       <div id="mixed-pos-error" style="color:var(--red);font-size:13px;min-height:18px;margin-bottom:12px"></div>
-      <button class="cta-btn" onclick="_confirmMixedPosition('${sessionId}')">Register →</button>
+      <button class="cta-btn" onclick="_confirmMixedPosition('${sessionId}')">Yes, register as ${openStr} →</button>
       <button class="cta-btn secondary-btn" style="margin-top:8px" onclick="document.getElementById('mixed-pos-overlay').remove()">Cancel</button>
     </div>`;
   document.body.appendChild(el);
