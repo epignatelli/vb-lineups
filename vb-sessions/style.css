@@ -635,7 +635,8 @@ body {
 .queue-offer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px;
                    padding: 8px 10px; background: var(--amber-bg);
                    border: 1px solid rgba(240,165,0,.25); border-radius: var(--radius-sm); }
-.queue-offer-label { font-size: 12px; font-weight: 600; color: var(--amber); }
+.queue-offer-label { font-size: 12px; font-weight: 600; color: var(--amber); flex: 1; }
+.queue-offer-row .icon-btn { flex-shrink: 0; white-space: nowrap; }
 .attendee-row-me .attendee-name-btn { color: var(--amber); font-weight: 700; }
 
 /* queue modal */
