@@ -3069,7 +3069,7 @@ async function openSessionCreateInline() {
       <div class="field-row">
         <div class="field">
           <label class="field-label">Max players</label>
-          <input class="field-input" type="number" id="ie-max" min="1" max="100" inputmode="numeric" placeholder="12" />
+          <input class="field-input" type="number" id="ie-max" min="1" max="100" inputmode="numeric" placeholder="12" oninput="_ieUpdatePosTotal()" />
         </div>
         <div class="field">
           <label class="field-label">Cost (£)</label>
@@ -3100,11 +3100,12 @@ async function openSessionCreateInline() {
       <div class="field" id="ie-pos-targets-field" style="display:none">
         <label class="field-label">Position targets <span class="field-hint">— leave blank for no limit</span></label>
         <div class="pos-targets-row">
-          <label class="pos-target-item"><span class="pos-target-label">Setter</span><input class="field-input pos-target-input" type="number" id="ie-target-setter" min="0" max="99" placeholder="–"/></label>
-          <label class="pos-target-item"><span class="pos-target-label">Hitter</span><input class="field-input pos-target-input" type="number" id="ie-target-hitter" min="0" max="99" placeholder="–"/></label>
-          <label class="pos-target-item"><span class="pos-target-label">Middle</span><input class="field-input pos-target-input" type="number" id="ie-target-middle" min="0" max="99" placeholder="–"/></label>
-          <label class="pos-target-item"><span class="pos-target-label">Libero</span><input class="field-input pos-target-input" type="number" id="ie-target-libero" min="0" max="99" placeholder="–"/></label>
+          <label class="pos-target-item"><span class="pos-target-label">Setter</span><input class="field-input pos-target-input" type="number" id="ie-target-setter" min="0" max="99" placeholder="–" oninput="_ieUpdatePosTotal()"/></label>
+          <label class="pos-target-item"><span class="pos-target-label">Hitter</span><input class="field-input pos-target-input" type="number" id="ie-target-hitter" min="0" max="99" placeholder="–" oninput="_ieUpdatePosTotal()"/></label>
+          <label class="pos-target-item"><span class="pos-target-label">Middle</span><input class="field-input pos-target-input" type="number" id="ie-target-middle" min="0" max="99" placeholder="–" oninput="_ieUpdatePosTotal()"/></label>
+          <label class="pos-target-item"><span class="pos-target-label">Libero</span><input class="field-input pos-target-input" type="number" id="ie-target-libero" min="0" max="99" placeholder="–" oninput="_ieUpdatePosTotal()"/></label>
         </div>
+        <div class="pos-targets-total" id="ie-pos-total"></div>
       </div>
       ${!_isAdmin ? `
       <label class="form-insurance-label">
@@ -3119,6 +3120,20 @@ async function openSessionCreateInline() {
     <button class="cta-btn" id="ie-save-btn" onclick="_submitInlineCreate()">Create session</button>`;
 
   if (_isAdmin) await _ieLoadCoachOptions('', '');
+}
+
+function _ieUpdatePosTotal() {
+  const totalEl = document.getElementById('ie-pos-total');
+  if (!totalEl) return;
+  const max = parseInt(document.getElementById('ie-max')?.value) || 0;
+  let sum = 0;
+  for (const p of ['setter','hitter','middle','libero']) {
+    sum += parseInt(document.getElementById(`ie-target-${p}`)?.value) || 0;
+  }
+  if (sum === 0) { totalEl.textContent = ''; totalEl.className = 'pos-targets-total'; return; }
+  const ok = max && sum === max;
+  totalEl.textContent = ok ? `${sum} / ${max} ✓` : `${sum} / ${max || '?'} — must equal max players`;
+  totalEl.className = 'pos-targets-total' + (ok ? ' pos-total-ok' : ' pos-total-err');
 }
 
 window._ieOnRepeatChange = function() {
@@ -3147,6 +3162,10 @@ window._submitInlineCreate = async function() {
   if (isNaN(maxVal) || maxVal < 1) { errorEl.textContent = 'Max players must be at least 1.'; return; }
   if (insuranceEl && !insuranceEl.checked) {
     errorEl.textContent = 'Please confirm you hold public liability insurance.'; return;
+  }
+  if (document.getElementById('ie-ask-positions')?.checked) {
+    const posSum = ['setter','hitter','middle','libero'].reduce((s, p) => s + (parseInt(document.getElementById(`ie-target-${p}`)?.value) || 0), 0);
+    if (posSum > 0 && posSum !== maxVal) { errorEl.textContent = `Position targets sum to ${posSum} but max players is ${maxVal} — they must match.`; return; }
   }
 
   errorEl.textContent = '';
@@ -3330,7 +3349,7 @@ async function openSessionEditInline(sessionId) {
       <div class="field-row">
         <div class="field">
           <label class="field-label">Max players</label>
-          <input class="field-input" type="number" id="ie-max" min="1" max="100" inputmode="numeric" placeholder="12" value="${s.maxPlayers||''}" />
+          <input class="field-input" type="number" id="ie-max" min="1" max="100" inputmode="numeric" placeholder="12" value="${s.maxPlayers||''}" oninput="_ieUpdatePosTotal()" />
         </div>
         <div class="field">
           <label class="field-label">Cost (£)</label>
@@ -3361,11 +3380,12 @@ async function openSessionEditInline(sessionId) {
       <div class="field" id="ie-pos-targets-field" style="display:${hasPos?'':'none'}">
         <label class="field-label">Position targets <span class="field-hint">— leave blank for no limit</span></label>
         <div class="pos-targets-row">
-          <label class="pos-target-item"><span class="pos-target-label">Setter</span><input class="field-input pos-target-input" type="number" id="ie-target-setter" min="0" max="99" placeholder="–" value="${pt.setter||''}"/></label>
-          <label class="pos-target-item"><span class="pos-target-label">Hitter</span><input class="field-input pos-target-input" type="number" id="ie-target-hitter" min="0" max="99" placeholder="–" value="${pt.hitter||''}"/></label>
-          <label class="pos-target-item"><span class="pos-target-label">Middle</span><input class="field-input pos-target-input" type="number" id="ie-target-middle" min="0" max="99" placeholder="–" value="${pt.middle||''}"/></label>
-          <label class="pos-target-item"><span class="pos-target-label">Libero</span><input class="field-input pos-target-input" type="number" id="ie-target-libero" min="0" max="99" placeholder="–" value="${pt.libero||''}"/></label>
+          <label class="pos-target-item"><span class="pos-target-label">Setter</span><input class="field-input pos-target-input" type="number" id="ie-target-setter" min="0" max="99" placeholder="–" value="${pt.setter||''}" oninput="_ieUpdatePosTotal()"/></label>
+          <label class="pos-target-item"><span class="pos-target-label">Hitter</span><input class="field-input pos-target-input" type="number" id="ie-target-hitter" min="0" max="99" placeholder="–" value="${pt.hitter||''}" oninput="_ieUpdatePosTotal()"/></label>
+          <label class="pos-target-item"><span class="pos-target-label">Middle</span><input class="field-input pos-target-input" type="number" id="ie-target-middle" min="0" max="99" placeholder="–" value="${pt.middle||''}" oninput="_ieUpdatePosTotal()"/></label>
+          <label class="pos-target-item"><span class="pos-target-label">Libero</span><input class="field-input pos-target-input" type="number" id="ie-target-libero" min="0" max="99" placeholder="–" value="${pt.libero||''}" oninput="_ieUpdatePosTotal()"/></label>
         </div>
+        <div class="pos-targets-total" id="ie-pos-total"></div>
       </div>
       ${_isAdmin ? `
       <div class="field">
@@ -3379,7 +3399,7 @@ async function openSessionEditInline(sessionId) {
     <button class="cta-btn secondary-btn" onclick="openSession('${sessionId}')">Cancel</button>
     <button class="cta-btn" id="ie-save-btn" onclick="_submitInlineEdit('${sessionId}')">Save changes</button>`;
 
-  // Load coaches async after HTML is in DOM
+  _ieUpdatePosTotal();
   if (_isAdmin) await _ieLoadCoachOptions(s.coach, s.coachUid);
 }
 
@@ -3430,6 +3450,10 @@ window._submitInlineEdit = async function(sessionId) {
   if (!dateVal)                    { errorEl.textContent = 'Please set a date.'; return; }
   if (!venueId)                    { errorEl.textContent = 'Please select a venue.'; return; }
   if (isNaN(maxVal) || maxVal < 1) { errorEl.textContent = 'Max players must be at least 1.'; return; }
+  if (document.getElementById('ie-ask-positions')?.checked) {
+    const posSum = ['setter','hitter','middle','libero'].reduce((s, p) => s + (parseInt(document.getElementById(`ie-target-${p}`)?.value) || 0), 0);
+    if (posSum > 0 && posSum !== maxVal) { errorEl.textContent = `Position targets sum to ${posSum} but max players is ${maxVal} — they must match.`; return; }
+  }
 
   errorEl.textContent = '';
   saveBtn.disabled = true;

@@ -605,6 +605,9 @@ body {
 .pos-target-label { font-size: 11px; font-weight: 700; letter-spacing: .06em;
                     text-transform: uppercase; color: var(--muted); }
 .pos-target-input { text-align: center; padding: 6px 4px !important; }
+.pos-targets-total { font-size: 12px; font-weight: 600; margin-top: 4px; min-height: 16px; }
+.pos-targets-total.pos-total-ok  { color: var(--green); }
+.pos-targets-total.pos-total-err { color: var(--red); }
 
 /* position fill chips in session detail */
 .pos-fill-row { display: flex; flex-wrap: wrap; gap: 5px; }
