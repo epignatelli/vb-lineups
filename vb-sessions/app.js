@@ -1019,11 +1019,6 @@ function _renderSessionCard(s) {
           <span class="session-meta-item">${esc(costStr)}</span>
         </span>
       </div>
-      ${(_isAdmin || (_isProvider && _currentUser && s.providerUid === _currentUser.uid)) ? `
-        <div class="session-admin-btns" onclick="event.stopPropagation()">
-          <button class="icon-btn" onclick="openSessionForm('${s.id}')" title="Edit">✎</button>
-          ${_isAdmin ? `<button class="icon-btn danger" data-id="${esc(s.id)}" data-venue="${esc(s.venue || '')}" onclick="deleteSession(this.dataset.id,this.dataset.venue,this)" title="Delete">✕</button>` : ''}
-        </div>` : ''}
     </div>`;
 }
 
