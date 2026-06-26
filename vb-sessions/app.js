@@ -3227,8 +3227,9 @@ async function submitSessionForm() {
       await batch.commit();
       showToast(`${dates.length} sessions created.`);
     }
+    const returnId = _editingId;
     closeSessionForm();
-    renderHome();
+    if (returnId) openSession(returnId); else renderHome();
   } catch(e) {
     console.error('Save session failed:', e);
     errorEl.textContent = e.code === 'permission-denied'
