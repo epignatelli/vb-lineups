@@ -39,7 +39,7 @@
     <div class="topbar-right">
       <div id="home-new-btns" style="display:none;gap:6px;align-items:center" class="topbar-new-group">
         <button class="topbar-new-btn" id="home-new-session-btn" onclick="openSessionCreateInline()">+ New session</button>
-        <button class="topbar-new-btn" id="home-new-pass-btn"    onclick="openSeriesForm()">+ New pass</button>
+        <button class="topbar-new-btn" id="home-new-pass-btn"    onclick="openSeriesCreateInline()">+ New pass</button>
       </div>
       <div id="nav-avatar-wrap">
         <button class="auth-btn" id="auth-btn" onclick="handleAuthClick()">Sign in</button>
@@ -190,7 +190,7 @@
   </div>
 
   <div class="footer" id="series-footer" style="display:none">
-    <button class="cta-btn" onclick="openSeriesForm()">+ New pass</button>
+    <button class="cta-btn" onclick="openSeriesCreateInline()">+ New pass</button>
   </div>
 
 </div>
@@ -252,49 +252,6 @@
   </div>
 </div>
 
-<!-- ── Series form overlay ────────────────────────────────────────────────── -->
-<div class="overlay" id="series-form-overlay">
-  <div class="panel">
-    <div class="panel-header">
-      <span class="panel-title" id="series-form-title">New pass</span>
-      <button class="panel-close" onclick="closeSeriesForm()">✕</button>
-    </div>
-    <div class="field">
-      <label class="field-label">Name <span style="color:var(--red)">*</span></label>
-      <input class="field-input" type="text" id="sf-name" placeholder="e.g. Summer League 2026" maxlength="80" />
-    </div>
-    <div class="field">
-      <label class="field-label">Description</label>
-      <textarea class="field-input field-textarea" id="sf-description" placeholder="What is this series about?" maxlength="400"></textarea>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label class="field-label">Start date</label>
-        <input class="field-input" type="date" id="sf-start" />
-      </div>
-      <div class="field">
-        <label class="field-label">End date</label>
-        <input class="field-input" type="date" id="sf-end" />
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label class="field-label">Price (£)</label>
-        <input class="field-input" type="number" id="sf-cost" min="0" step="0.5" inputmode="decimal" placeholder="0" />
-        <div class="field-hint">0 = free series pass</div>
-      </div>
-      <div class="field">
-        <label class="field-label">Max members</label>
-        <input class="field-input" type="number" id="sf-max-players" min="1" max="200" inputmode="numeric" placeholder="e.g. 20" />
-      </div>
-    </div>
-    <p id="series-form-error" style="color:var(--red);font-size:13px;min-height:18px"></p>
-    <div style="display:flex;gap:8px">
-      <button class="cta-btn secondary-btn" id="series-delete-btn" onclick="deleteSeries()" style="display:none">Delete</button>
-      <button class="cta-btn" id="series-submit-btn" onclick="submitSeriesForm()" style="flex:1">Save pass</button>
-    </div>
-  </div>
-</div>
 
 <!-- ══════════════════════════════════════════════════
      OVERLAY — ONE-TIME PROFILE

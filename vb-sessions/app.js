@@ -5012,7 +5012,7 @@ function _renderSeriesCard(s, hasPass = false) {
       </div>
       ${(_isAdmin || (_isProvider && _currentUser && s.providerUid === _currentUser.uid)) ? `
         <div class="session-admin-btns" onclick="event.stopPropagation()">
-          <button class="icon-btn" onclick="openSeriesForm('${s.id}')" title="Edit">✎</button>
+          <button class="icon-btn" onclick="openSeriesEditInline('${s.id}')" title="Edit">✎</button>
           <button class="icon-btn" onclick="copySeriesInviteLink('${s.id}')" title="Copy invite link">🔗</button>
         </div>` : ''}
     </div>`;
@@ -5109,7 +5109,7 @@ async function openSeriesDetail(seriesId) {
     const adminActions = _isAdmin ? `
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
         <button class="series-copy-link-btn" onclick="copySeriesInviteLink('${seriesId}')">Copy invite link</button>
-        <button class="series-copy-link-btn" onclick="openSeriesForm('${seriesId}')">Edit pass</button>
+        <button class="series-copy-link-btn" onclick="openSeriesEditInline('${seriesId}')">Edit pass</button>
       </div>` : '';
 
     const memberRows = members.map((m, i) => _isAdmin
@@ -5192,49 +5192,96 @@ async function openSeriesSessions(seriesId, seriesName) {
 
 // ── Series form ──
 
-function openSeriesForm(id) {
-  if (!id && !_canCreate()) return;                         // creating: admins + onboarded providers
-  if (id && !_isAdmin && !_isProvider) return;             // editing: admin or provider
-  if (!id && !_isAdmin && !_providerOnboardingComplete) {
+function _seriesFormHtml(s) {
+  const startVal = s?.startDate?.toDate ? s.startDate.toDate().toISOString().slice(0, 10) : '';
+  const endVal   = s?.endDate?.toDate   ? s.endDate.toDate().toISOString().slice(0, 10)   : '';
+  return `
+    <div class="form-fields" style="padding-bottom:80px">
+      <div class="field">
+        <label class="field-label">Name <span style="color:var(--red)">*</span></label>
+        <input class="field-input" type="text" id="sfi-name" placeholder="e.g. Summer League 2026" maxlength="80" value="${esc(s?.name || '')}" />
+      </div>
+      <div class="field">
+        <label class="field-label">Description</label>
+        <textarea class="field-input field-textarea" id="sfi-description" placeholder="What is this series about?" maxlength="400">${esc(s?.description || '')}</textarea>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Start date</label>
+          <input class="field-input" type="date" id="sfi-start" value="${startVal}" />
+        </div>
+        <div class="field">
+          <label class="field-label">End date</label>
+          <input class="field-input" type="date" id="sfi-end" value="${endVal}" />
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Price (£)</label>
+          <input class="field-input" type="number" id="sfi-cost" min="0" step="0.5" inputmode="decimal" placeholder="0" value="${s?.cost ?? ''}" />
+          <div class="field-hint">0 = free pass</div>
+        </div>
+        <div class="field">
+          <label class="field-label">Max members</label>
+          <input class="field-input" type="number" id="sfi-max-players" min="1" max="200" inputmode="numeric" placeholder="e.g. 20" value="${s?.maxPlayers ?? ''}" />
+        </div>
+      </div>
+      <div class="form-error" id="sfi-error"></div>
+    </div>`;
+}
+
+async function openSeriesCreateInline() {
+  if (!_canCreate()) return;
+  if (!_isAdmin && !_providerOnboardingComplete) {
     showToast('Set up payments in your profile before creating a pass.', 'error');
     return;
   }
-  _editingSeriesId = id || null;
-  const s = id ? _allSeries.find(x => x.id === id) : null;
-  document.getElementById('series-form-title').textContent = s ? 'Edit pass' : 'New pass';
-  document.getElementById('sf-name').value        = s?.name        || '';
-  document.getElementById('sf-description').value = s?.description || '';
-  const startD = s?.startDate?.toDate?.();
-  const endD   = s?.endDate?.toDate?.();
-  document.getElementById('sf-start').value      = startD ? startD.toISOString().slice(0, 10) : '';
-  document.getElementById('sf-end').value        = endD   ? endD.toISOString().slice(0, 10)   : '';
-  document.getElementById('sf-cost').value       = s?.cost       ?? '';
-  document.getElementById('sf-max-players').value = s?.maxPlayers ?? '';
-  document.getElementById('series-form-error').textContent = '';
-  document.getElementById('series-delete-btn').style.display = s ? '' : 'none';
-  document.getElementById('series-form-overlay').classList.add('open');
+  showScreen('detail');
+  _setTitle('New pass');
+  _setBack(() => openSeriesScreen());
+  document.getElementById('detail-content').innerHTML = _seriesFormHtml(null);
+  document.getElementById('detail-footer').innerHTML = `
+    <button class="cta-btn secondary-btn" onclick="openSeriesScreen()">Cancel</button>
+    <button class="cta-btn" id="sfi-save-btn" onclick="_submitSeriesInline(null)">Save pass</button>`;
 }
 
-function closeSeriesForm() {
-  document.getElementById('series-form-overlay').classList.remove('open');
-  _editingSeriesId = null;
+async function openSeriesEditInline(seriesId) {
+  if (!_isAdmin && !_isProvider) return;
+  showScreen('detail');
+  _setTitle('Edit pass');
+  _setBack(() => openSeriesDetail(seriesId));
+  document.getElementById('detail-content').innerHTML = '<div class="home-empty">Loading…</div>';
+  document.getElementById('detail-footer').innerHTML = '';
+
+  if (!_allSeries.length) await _loadSeries();
+  const s = _allSeries.find(x => x.id === seriesId)
+    || (await _seriesColRef().doc(seriesId).get().then(d => d.exists ? { id: d.id, ...d.data() } : null));
+
+  if (!s) { document.getElementById('detail-content').innerHTML = '<div class="home-empty">Pass not found.</div>'; return; }
+
+  document.getElementById('detail-content').innerHTML = _seriesFormHtml(s);
+  document.getElementById('detail-footer').innerHTML = `
+    <button class="cta-btn danger-btn" onclick="_deleteSeriesInline('${seriesId}')">Delete</button>
+    <button class="cta-btn secondary-btn" onclick="openSeriesDetail('${seriesId}')">Cancel</button>
+    <button class="cta-btn" id="sfi-save-btn" onclick="_submitSeriesInline('${seriesId}')">Save pass</button>`;
 }
 
-async function submitSeriesForm() {
-  const name    = document.getElementById('sf-name').value.trim();
-  const errorEl = document.getElementById('series-form-error');
+window._submitSeriesInline = async function(seriesId) {
+  const errorEl = document.getElementById('sfi-error');
+  const saveBtn = document.getElementById('sfi-save-btn');
+  const name    = document.getElementById('sfi-name').value.trim();
   if (!name) { errorEl.textContent = 'Name is required.'; return; }
 
-  const btn  = document.getElementById('series-submit-btn');
-  btn.disabled = true;
+  errorEl.textContent = '';
+  saveBtn.disabled = true;
 
-  const startVal     = document.getElementById('sf-start').value;
-  const endVal       = document.getElementById('sf-end').value;
-  const costRaw      = parseFloat(document.getElementById('sf-cost').value);
-  const maxPlayersRaw = parseInt(document.getElementById('sf-max-players').value, 10);
+  const startVal      = document.getElementById('sfi-start').value;
+  const endVal        = document.getElementById('sfi-end').value;
+  const costRaw       = parseFloat(document.getElementById('sfi-cost').value);
+  const maxPlayersRaw = parseInt(document.getElementById('sfi-max-players').value, 10);
   const data = {
     name,
-    description: document.getElementById('sf-description').value.trim(),
+    description: document.getElementById('sfi-description').value.trim(),
     startDate:   startVal ? firebase.firestore.Timestamp.fromDate(new Date(startVal + 'T12:00:00')) : null,
     endDate:     endVal   ? firebase.firestore.Timestamp.fromDate(new Date(endVal   + 'T12:00:00')) : null,
     cost:        isNaN(costRaw)       ? 0    : costRaw,
@@ -5242,37 +5289,36 @@ async function submitSeriesForm() {
   };
 
   try {
-    if (_editingSeriesId) {
-      await _seriesColRef().doc(_editingSeriesId).update(data);
+    if (seriesId) {
+      await _seriesColRef().doc(seriesId).update(data);
+      await _loadSeries();
+      await openSeriesDetail(seriesId);
     } else {
       data.createdAt   = firebase.firestore.FieldValue.serverTimestamp();
       data.providerUid = _currentUser.uid;
-      await _seriesColRef().add(data);
+      const ref = await _seriesColRef().add(data);
+      await _loadSeries();
+      await openSeriesDetail(ref.id);
     }
-    closeSeriesForm();
-    await renderSeries();
-    await _populateSeriesSelect();
   } catch(e) {
-    errorEl.textContent = 'Couldn\'t save series. Try again.';
     console.error(e);
-  } finally {
-    btn.disabled = false;
+    errorEl.textContent = 'Couldn\'t save pass. Try again.';
+    saveBtn.disabled = false;
   }
-}
+};
 
-async function deleteSeries() {
-  if (!_editingSeriesId) return;
-  if (!confirm('Delete this series? Sessions assigned to it will keep the association until updated.')) return;
+window._deleteSeriesInline = async function(seriesId) {
+  if (!confirm('Delete this pass? Sessions assigned to it will keep the association until updated.')) return;
   try {
-    await _seriesColRef().doc(_editingSeriesId).delete();
-    closeSeriesForm();
+    await _seriesColRef().doc(seriesId).delete();
     await _loadSeries();
-    await renderSeries();
-    await _populateSeriesSelect();
+    openSeriesScreen();
   } catch(e) {
-    document.getElementById('series-form-error').textContent = 'Couldn\'t delete series.';
+    const errorEl = document.getElementById('sfi-error');
+    if (errorEl) errorEl.textContent = 'Couldn\'t delete pass.';
+    console.error(e);
   }
-}
+};
 
 async function _populateSeriesSelect(selectedId) {
   const sel = document.getElementById('form-series-select');
