@@ -598,11 +598,11 @@ body {
 .pos-fill-row { display: flex; flex-wrap: wrap; gap: 5px; }
 .pos-fill-chip { font-size: 11px; font-weight: 700; padding: 2px 7px;
                  border-radius: 99px; border: 1px solid transparent; }
-.pos-fill-chip.setter { background: rgba(96,165,250,.13);  border-color: rgba(96,165,250,.35);  color: #60a5fa; }
-.pos-fill-chip.hitter { background: rgba(251,146,60,.13);  border-color: rgba(251,146,60,.35);  color: #fb923c; }
-.pos-fill-chip.middle { background: rgba(167,139,250,.13); border-color: rgba(167,139,250,.35); color: #a78bfa; }
-.pos-fill-chip.libero { background: rgba(52,211,153,.13);  border-color: rgba(52,211,153,.35);  color: #34d399; }
-.pos-fill-chip.full   { background: rgba(240,165,0,.15);   border-color: rgba(240,165,0,.5);    color: var(--amber); }
+.pos-fill-chip.setter { background: rgba(96,165,250,.15);   border-color: #60a5fa;              color: #93c5fd; }
+.pos-fill-chip.hitter { background: var(--amber-bg);        border-color: rgba(245,166,35,.35);  color: var(--amber); }
+.pos-fill-chip.middle { background: var(--purple-bg);       border-color: rgba(167,139,250,.35); color: var(--purple); }
+.pos-fill-chip.libero { background: var(--green-bg);        border-color: rgba(34,201,122,.35);  color: var(--green); }
+.pos-fill-chip.full   { background: rgba(240,165,0,.15);    border-color: rgba(240,165,0,.5);    color: var(--amber); }
 
 .toggle-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .toggle-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--amber); flex-shrink: 0; }
