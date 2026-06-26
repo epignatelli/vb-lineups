@@ -1559,7 +1559,10 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
     }).join(' · ');
     footer.innerHTML = `
       <span class="waiting-pos">In queue — ${queueNums}</span>
-      <button class="cta-btn secondary-btn" onclick="leavePositionQueue('${session.id}')">Leave queue</button>${msgBtn}`;
+      <div style="display:flex;gap:8px">
+        <button class="cta-btn secondary-btn" onclick="editPositionQueue('${session.id}')">Edit positions</button>
+        <button class="cta-btn secondary-btn" onclick="leavePositionQueue('${session.id}')">Leave queue</button>
+      </div>${msgBtn}`;
   } else if (seriesJoin) {
     footer.innerHTML = `${seriesJoin}${msgBtn}`;
   } else if (myWaitingListPos !== 0 && !isFull && !deadlinePassed) {
@@ -1722,6 +1725,58 @@ window.leavePositionQueue = async function(sessionId) {
   } catch(e) {
     console.error('Leave queue failed:', e);
     showToast('Couldn\'t leave queue. Try again.');
+  }
+};
+
+window.editPositionQueue = function(sessionId) {
+  const current = _myQueueEntry?.positions || [];
+  const allPositions = Object.keys(_currentSession?.positionTargets || {});
+
+  const existing = document.getElementById('queue-modal-overlay');
+  if (existing) existing.remove();
+
+  const rows = allPositions.map(pos => {
+    const checked = current.includes(pos);
+    const lbl = POS_LABELS_FULL[pos] || pos;
+    return `<label class="pos-queue-check-row">
+      <input type="checkbox" value="${pos}" ${checked ? 'checked' : ''} />
+      <span class="pos-queue-check-label">${lbl}</span>
+    </label>`;
+  }).join('');
+
+  const el = document.createElement('div');
+  el.id = 'queue-modal-overlay';
+  el.className = 'overlay open';
+  el.innerHTML = `
+    <div class="panel" style="max-width:420px">
+      <div class="panel-header"><span class="panel-title">Edit queue positions</span></div>
+      <p style="font-size:14px;color:var(--muted);line-height:1.55;padding-bottom:16px">
+        Update which position queues you're in. Your place in any existing queue won't change.
+      </p>
+      <div id="queue-modal-positions" style="display:flex;flex-direction:column;gap:10px;padding-bottom:20px">${rows}</div>
+      <div id="queue-modal-error" style="color:var(--red);font-size:13px;min-height:18px;margin-bottom:12px"></div>
+      <button class="cta-btn" onclick="_confirmEditQueue('${sessionId}')">Save →</button>
+      <button class="cta-btn secondary-btn" style="margin-top:8px" onclick="document.getElementById('queue-modal-overlay').remove()">Cancel</button>
+    </div>`;
+  document.body.appendChild(el);
+};
+
+window._confirmEditQueue = async function(sessionId) {
+  const checked = Array.from(document.querySelectorAll('#queue-modal-positions input:checked')).map(el => el.value);
+  if (!checked.length) {
+    document.getElementById('queue-modal-error').textContent = 'Select at least one position, or leave the queue.';
+    return;
+  }
+  const btn = document.querySelector('#queue-modal-overlay .cta-btn');
+  btn.disabled = true;
+  try {
+    await _posWlRef(sessionId).doc(_currentUser.uid).update({ positions: checked });
+    document.getElementById('queue-modal-overlay').remove();
+    await openSession(sessionId);
+  } catch(e) {
+    console.error('Edit queue failed:', e);
+    document.getElementById('queue-modal-error').textContent = 'Couldn\'t update queue. Try again.';
+    btn.disabled = false;
   }
 };
 
