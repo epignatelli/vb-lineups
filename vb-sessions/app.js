@@ -253,7 +253,7 @@ let _allSeries           = [];
 let _editingSeriesId     = null;
 
 function _canCreate() {
-  return _isAdmin || (_isProvider && _providerOnboardingComplete);
+  return _isOwner || (_isProvider && _providerOnboardingComplete);
 }
 
 function _setNav(mode, activeTab) {
