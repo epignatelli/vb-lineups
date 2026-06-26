@@ -4,6 +4,7 @@
 // Firestore triggers use Gen 2 (Eventarc) — required for eur3 multi-region DB.
 const functions = require('firebase-functions/v1');
 const { onDocumentCreated, onDocumentUpdated, onDocumentWritten } = require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const { initializeApp }            = require('firebase-admin/app');
 const { getAuth }                  = require('firebase-admin/auth');
@@ -893,6 +894,45 @@ exports.onAttendeeJoined = onDocumentCreated({
       `See you on the court!`,
     ], calUrl)
   );
+
+  // Notify queued players with pending offers if their offered position just became full
+  const pt = session.positionTargets;
+  const newPositions = attendee.positions || [];
+  if (pt && newPositions.length) {
+    const posWlSnap = await db.collection('sessions').doc(sessionId)
+      .collection('positionWaitingList').get();
+    const withOffers = posWlSnap.docs.filter(d => {
+      const offered = d.data().pendingOffer?.positions
+        || (d.data().pendingOffer?.position ? [d.data().pendingOffer.position] : []);
+      return offered.some(p => newPositions.includes(p)) && d.data().email;
+    });
+    if (withOffers.length) {
+      const allAttSnap = await db.collection('sessions').doc(sessionId).collection('attendees').get();
+      const counts = {};
+      for (const d of allAttSnap.docs) {
+        for (const p of (d.data().positions || [])) counts[p] = (counts[p] || 0) + 1;
+      }
+      const fullPositions = newPositions.filter(p => pt[p] != null && (counts[p] || 0) >= pt[p]);
+      if (fullPositions.length) {
+        const POS_LABELS = { setter: 'Setter', hitter: 'Hitter', middle: 'Middle', libero: 'Libero' };
+        const sessionUrl = `${APP_URL}#${sessionId}`;
+        for (const doc of withOffers) {
+          const entry   = doc.data();
+          const offered = entry.pendingOffer?.positions || (entry.pendingOffer?.position ? [entry.pendingOffer.position] : []);
+          const taken   = fullPositions.filter(p => offered.includes(p));
+          if (!taken.length) continue;
+          const posStr = taken.map(p => POS_LABELS[p] || p).join(' and ');
+          await sendEmail(entry.email,
+            `The ${posStr} spot was taken — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+            _emailHtml(`Hi ${entry.name || 'there'},`, [
+              `Someone else was faster — the <strong>${posStr}</strong> spot for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''} has just been taken.`,
+              `You're still in the queue for your original position.`,
+            ], null, sessionUrl, 'View session →')
+          );
+        }
+      }
+    }
+  }
 });
 
 // ── removeAttendeeAdmin ──────────────────────────────────────────────────────
@@ -1937,6 +1977,97 @@ function _requestActionButtons(approveUrl, rejectUrl) {
   ${a(rejectUrl,  'Reject →',  '#dc2626')}
 </div>`;
 }
+
+// ── onPositionOfferSent ───────────────────────────────────────────────────────
+// Fires when admin sets pendingOffer on a queue doc. Emails the player.
+exports.onPositionOfferSent = onDocumentUpdated({
+  document: 'sessions/{sessionId}/positionWaitingList/{uid}',
+  region:   REGION_FIRESTORE,
+  secrets:  [GMAIL_APP_PASSWORD],
+}, async (event) => {
+  const before = event.data.before.data();
+  const after  = event.data.after.data();
+
+  const _offerPositions = d =>
+    d.pendingOffer?.positions || (d.pendingOffer?.position ? [d.pendingOffer.position] : []);
+
+  const prevPositions = _offerPositions(before);
+  const nextPositions = _offerPositions(after);
+  const newPositions  = nextPositions.filter(p => !prevPositions.includes(p));
+  if (!newPositions.length) return; // no new offered positions
+
+  const email = after.email;
+  const name  = after.name || 'there';
+  if (!email) return;
+
+  const db         = getFirestore();
+  const sessionDoc = await db.collection('sessions').doc(event.params.sessionId).get();
+  if (!sessionDoc.exists) return;
+  const session = sessionDoc.data();
+
+  const POS_LABELS = { setter: 'Setter', hitter: 'Hitter', middle: 'Middle', libero: 'Libero' };
+  const posStr     = newPositions.map(p => POS_LABELS[p] || p).join(' or ');
+  const venue      = session.venue || 'the session';
+  const dateStr    = _formatDate(session.date);
+  const sessionUrl = `${APP_URL}#${event.params.sessionId}`;
+
+  await sendEmail(email,
+    `Spot available — ${posStr} · ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+    _emailHtml(`Hi ${name},`, [
+      `A <strong>${posStr}</strong> spot has opened up for <strong>${venue}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ''}.`,
+      `This is <strong>first-come-first-served</strong> — be quick!`,
+    ], null, sessionUrl, 'Claim your spot →')
+  );
+});
+
+// ── sendSessionReminders ─────────────────────────────────────────────────────
+// Runs every day at 08:00 London time. Emails all attendees of sessions
+// happening the following day.
+exports.sendSessionReminders = onSchedule({
+  schedule:  '0 8 * * *',
+  timeZone:  'Europe/London',
+  region:    REGION,
+  secrets:   [GMAIL_APP_PASSWORD],
+}, async () => {
+  const db  = getFirestore();
+  const now = new Date();
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  const dayAfter = new Date(tomorrow);
+  dayAfter.setDate(dayAfter.getDate() + 1);
+
+  const sessionsSnap = await db.collection('sessions')
+    .where('date', '>=', tomorrow)
+    .where('date', '<', dayAfter)
+    .get();
+
+  for (const sessionDoc of sessionsSnap.docs) {
+    const session = sessionDoc.data();
+    if (session.status === 'cancelled') continue;
+
+    const venue      = session.venue || 'the session';
+    const dateStr    = _formatDate(session.date);
+    const calUrl     = _calendarUrl(session);
+    const sessionUrl = `${APP_URL}#${sessionDoc.id}`;
+
+    const attendeesSnap = await db.collection('sessions').doc(sessionDoc.id)
+      .collection('attendees').get();
+
+    for (const attDoc of attendeesSnap.docs) {
+      const att = attDoc.data();
+      if (!att.email) continue;
+      await sendEmail(att.email,
+        `See you tomorrow — ${venue}${dateStr ? ` · ${dateStr}` : ''}`,
+        _emailHtml(`Hi ${att.name || 'there'},`, [
+          `Just a heads-up — you're registered for <strong>${venue}</strong> tomorrow${dateStr ? ` (<strong>${dateStr}</strong>)` : ''}.`,
+          `See you on the court!`,
+        ], calUrl, sessionUrl, 'View session →')
+      );
+    }
+  }
+});
 
 function _actionHtml(title, message) {
   const adminUrl = 'https://epignatelli.com/apps/vb-sessions/#users';
