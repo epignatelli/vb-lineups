@@ -1499,7 +1499,7 @@ function _renderDetail(session, attendees, isAttending, waitingList, myWaitingLi
     </div>
     ${(_isAdmin || (_isProvider && _currentUser && session.providerUid === _currentUser.uid)) ? `
     <div class="session-detail-admin">
-      <button class="cta-btn secondary-btn" onclick="openSessionForm('${session.id}')">Edit session</button>
+      <button class="cta-btn secondary-btn" onclick="openSessionEditInline('${session.id}')">Edit session</button>
       ${!isCancelled ? `<button class="cta-btn danger-btn" onclick="cancelSession('${session.id}')" title="Mark this session as cancelled and notify all attendees">Cancel session</button>` : ''}
       ${_isAdmin ? `<button class="cta-btn danger-btn" onclick="deleteSession('${session.id}','${esc(session.venue || '')}',this)" title="Permanently delete this session and all attendee records — cannot be undone">Delete session</button>` : ''}
     </div>` : ''}`;
@@ -3112,6 +3112,192 @@ function closeSessionForm() {
   document.getElementById('session-form-overlay').classList.remove('open');
   _editingId = null;
 }
+
+async function openSessionEditInline(sessionId) {
+  if (!_isAdmin && !_isProvider) return;
+  const s = _currentSession;
+  if (!s || s.id !== sessionId) { await openSession(sessionId); return; }
+  if (!_allVenues.length) await _loadVenues();
+
+  const content = document.getElementById('detail-content');
+  const footer  = document.getElementById('detail-footer');
+
+  const dateVal = s.date?.toDate ? s.date.toDate().toISOString().slice(0, 10) : '';
+  let deadlineVal = '';
+  if (s.registrationDeadline) {
+    const d = s.registrationDeadline.toDate ? s.registrationDeadline.toDate() : new Date(s.registrationDeadline);
+    deadlineVal = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  }
+
+  const venueOpts = _allVenues.map(v =>
+    `<option value="${v.id}"${v.id === s.venueId ? ' selected' : ''}>${esc(v.name)}</option>`
+  ).join('');
+  const levelOpts = [['','Any level'],['beginner','Beginner'],['intermediate','Intermediate'],['advanced','Advanced'],['competitive','Competitive']]
+    .map(([v,l]) => `<option value="${v}"${(s.level||'')===v?' selected':''}>${l}</option>`).join('');
+  const typeOpts  = SESSION_TYPES.map(t =>
+    `<option value="${t.value}"${(s.type||'game')===t.value?' selected':''}>${t.label}</option>`).join('');
+  const genderOpts = SESSION_GENDERS.map(g =>
+    `<option value="${g.value}"${(s.gender||'mixed')===g.value?' selected':''}>${g.label}</option>`).join('');
+  const statusOpts = [['open','Open'],['cancelled','Cancelled'],['ended','Ended']]
+    .map(([v,l]) => `<option value="${v}"${(s.status||'open')===v?' selected':''}>${l}</option>`).join('');
+
+  const pt = s.positionTargets || {};
+  const hasPos = !!s.askPositions;
+
+  content.innerHTML = `
+    <div style="padding:16px 20px 80px;display:flex;flex-direction:column;gap:14px">
+      <div class="field">
+        <label class="field-label">Date</label>
+        <input class="field-input" type="date" id="ie-date" value="${dateVal}" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Time</label>
+          <input class="field-input" type="time" id="ie-time" value="${esc(s.time||'')}" />
+        </div>
+        <div class="field">
+          <label class="field-label">Status</label>
+          <select class="field-input field-select" id="ie-status">${statusOpts}</select>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Venue</label>
+        <select class="field-input field-select" id="ie-venue">${venueOpts}</select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Type</label>
+          <select class="field-input field-select" id="ie-type">${typeOpts}</select>
+        </div>
+        <div class="field">
+          <label class="field-label">Gender</label>
+          <select class="field-input field-select" id="ie-gender">${genderOpts}</select>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Level</label>
+        <select class="field-input field-select" id="ie-level">${levelOpts}</select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Max players</label>
+          <input class="field-input" type="number" id="ie-max" min="1" max="100" inputmode="numeric" value="${s.maxPlayers||''}" />
+        </div>
+        <div class="field">
+          <label class="field-label">Cost (£)</label>
+          <input class="field-input" type="number" id="ie-cost" min="0" step="0.5" inputmode="decimal" value="${s.cost!=null?s.cost:''}" />
+        </div>
+      </div>
+      ${_isAdmin ? `
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Coach fee (£)</label>
+          <input class="field-input" type="number" id="ie-coach-fee" min="0" step="0.5" inputmode="decimal" value="${s.coachFee!=null?s.coachFee:''}" />
+        </div>
+        <div class="field" style="display:flex;align-items:flex-end;padding-bottom:2px">
+          <label class="toggle-row">
+            <input type="checkbox" id="ie-absorb-fee"${s.absorbFee?' checked':''} />
+            <span class="toggle-label-text">Waive booking fee</span>
+          </label>
+        </div>
+      </div>` : ''}
+      <div class="field">
+        <label class="field-label">Registration deadline</label>
+        <input class="field-input" type="datetime-local" id="ie-deadline" value="${deadlineVal}" />
+      </div>
+      <div class="field">
+        <label class="toggle-row">
+          <input type="checkbox" id="ie-ask-positions"${hasPos?' checked':''}
+            onchange="document.getElementById('ie-pos-targets').style.display=this.checked?'flex':'none'" />
+          <span class="toggle-label-text">Ask players for their position</span>
+        </label>
+      </div>
+      <div id="ie-pos-targets" style="display:${hasPos?'flex':'none'};flex-direction:column;gap:8px">
+        <div class="field-row">
+          ${['setter','hitter'].map(p=>`<div class="field"><label class="field-label" style="text-transform:capitalize">${p}</label>
+            <input class="field-input" type="number" id="ie-target-${p}" min="0" inputmode="numeric" value="${pt[p]||''}" placeholder="0"/></div>`).join('')}
+        </div>
+        <div class="field-row">
+          ${['middle','libero'].map(p=>`<div class="field"><label class="field-label" style="text-transform:capitalize">${p}</label>
+            <input class="field-input" type="number" id="ie-target-${p}" min="0" inputmode="numeric" value="${pt[p]||''}" placeholder="0"/></div>`).join('')}
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Description</label>
+        <textarea class="field-input field-textarea" id="ie-description" maxlength="400">${esc(s.description||'')}</textarea>
+      </div>
+      <div id="ie-error" style="color:var(--red,#e05555);font-size:13px;min-height:16px"></div>
+    </div>`;
+
+  footer.innerHTML = `
+    <button class="cta-btn secondary-btn" onclick="openSession('${sessionId}')">Cancel</button>
+    <button class="cta-btn" id="ie-save-btn" onclick="_submitInlineEdit('${sessionId}')">Save changes</button>`;
+}
+
+window._submitInlineEdit = async function(sessionId) {
+  const errorEl = document.getElementById('ie-error');
+  const saveBtn = document.getElementById('ie-save-btn');
+  const dateVal = document.getElementById('ie-date').value;
+  const venueId = document.getElementById('ie-venue').value;
+  const maxVal  = parseInt(document.getElementById('ie-max').value);
+
+  if (!dateVal)                    { errorEl.textContent = 'Please set a date.'; return; }
+  if (!venueId)                    { errorEl.textContent = 'Please select a venue.'; return; }
+  if (isNaN(maxVal) || maxVal < 1) { errorEl.textContent = 'Max players must be at least 1.'; return; }
+
+  errorEl.textContent = '';
+  saveBtn.disabled = true;
+
+  const venueObj    = _allVenues.find(v => v.id === venueId);
+  const costVal     = parseFloat(document.getElementById('ie-cost').value) || 0;
+  const absorbEl    = document.getElementById('ie-absorb-fee');
+  const absorbFee   = absorbEl ? absorbEl.checked : (!!_currentSession?.absorbFee);
+  const coachFeeEl  = document.getElementById('ie-coach-fee');
+  const coachFee    = coachFeeEl ? (parseFloat(coachFeeEl.value) || 0) : (_currentSession?.coachFee || 0);
+  const askPos      = document.getElementById('ie-ask-positions').checked;
+  const deadlineStr = document.getElementById('ie-deadline').value;
+
+  const posTargets = (() => {
+    if (!askPos) return null;
+    const t = {};
+    for (const p of ['setter','hitter','middle','libero']) {
+      const v = parseInt(document.getElementById(`ie-target-${p}`)?.value);
+      if (v > 0) t[p] = v;
+    }
+    return Object.keys(t).length ? t : null;
+  })();
+
+  const data = {
+    date:                 firebase.firestore.Timestamp.fromDate(new Date(dateVal + 'T12:00:00')),
+    time:                 document.getElementById('ie-time').value,
+    venue:                venueObj?.name || '',
+    venueId,
+    level:                document.getElementById('ie-level').value,
+    type:                 document.getElementById('ie-type').value,
+    gender:               document.getElementById('ie-gender').value,
+    description:          document.getElementById('ie-description').value,
+    maxPlayers:           maxVal,
+    cost:                 costVal,
+    coachFee,
+    absorbFee,
+    playerPrice:          absorbFee ? costVal : _playerPrice(costVal),
+    status:               document.getElementById('ie-status').value,
+    askPositions:         askPos,
+    positionTargets:      posTargets,
+    registrationDeadline: deadlineStr
+      ? firebase.firestore.Timestamp.fromDate(new Date(deadlineStr))
+      : null,
+  };
+
+  try {
+    await _sessionRef(sessionId).update(data);
+    await openSession(sessionId);
+  } catch(e) {
+    console.error('Save session failed:', e);
+    errorEl.textContent = e.code === 'permission-denied' ? 'Permission denied.' : 'Save failed — try again.';
+    saveBtn.disabled = false;
+  }
+};
 
 async function submitSessionForm() {
   if (!_isAdmin && !_isProvider) return;
