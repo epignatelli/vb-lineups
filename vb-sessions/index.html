@@ -464,11 +464,22 @@
   </div>
   <div class="fbar-item">
     <div class="fbar-pop" id="fpop-date">
-      <button class="fpop-opt active" data-date=""      onclick="setDateFilter('')">All</button>
+      <button class="fpop-opt active" data-date=""         onclick="setDateFilter('')">All</button>
       <button class="fpop-opt"        data-date="today"    onclick="setDateFilter('today')">Today</button>
       <button class="fpop-opt"        data-date="week"     onclick="setDateFilter('week')">This week</button>
       <button class="fpop-opt"        data-date="nextweek" onclick="setDateFilter('nextweek')">Next week</button>
       <button class="fpop-opt"        data-date="month"    onclick="setDateFilter('month')">This month</button>
+      <button class="fpop-opt"        data-date="custom"   onclick="document.getElementById('fpop-date-custom').style.display='flex';this.classList.add('active')">Custom…</button>
+      <div id="fpop-date-custom" style="display:none;padding-top:8px;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:11px;color:var(--muted);min-width:28px">From</label>
+          <input type="date" id="fdate-from" class="field-input" style="font-size:12px;padding:4px 8px" oninput="setCustomDateRange()" />
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:11px;color:var(--muted);min-width:28px">To</label>
+          <input type="date" id="fdate-to" class="field-input" style="font-size:12px;padding:4px 8px" oninput="setCustomDateRange()" />
+        </div>
+      </div>
     </div>
     <button class="fbar-btn" id="fbtn-date" onclick="toggleFilterPopover('date')">
       <span id="flabel-date">Date</span><span class="fbar-caret">▾</span>

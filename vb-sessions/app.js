@@ -273,7 +273,9 @@ let _activeLevelFilter      = new Set();   // set of level strings
 let _activeGenderFilter     = new Set();   // set of gender strings
 let _activeTypeFilter       = new Set();   // set of type strings
 let _activeStatusFilter     = 'open';      // '' | 'open' | 'closed' — default: open only
-let _activeDateFilter       = '';          // '' | 'today' | 'week' | 'month'
+let _activeDateFilter       = '';          // '' | 'today' | 'week' | 'nextweek' | 'month' | 'custom'
+let _activeDateFrom         = '';          // ISO date string for custom range start
+let _activeDateTo           = '';          // ISO date string for custom range end
 let _activeSeries        = null; // full series doc data when in filtered mode
 let _activeSeriesReg     = null; // user's paid registration for _activeSeries, or null
 let _activeSeriesMembers = []; // paid registrations for current series (admin view)
@@ -653,12 +655,27 @@ function setStatusFilter(status) {
 
 function setDateFilter(date) {
   _activeDateFilter = date;
+  _activeDateFrom   = '';
+  _activeDateTo     = '';
   document.querySelectorAll('#fpop-date .fpop-opt').forEach(b =>
     b.classList.toggle('active', (b.dataset.date || '') === (date || ''))
   );
+  const customWrap = document.getElementById('fpop-date-custom');
+  if (customWrap) customWrap.style.display = date === 'custom' ? '' : 'none';
   const label = _DATE_LABELS[date] || 'Date';
   _updateFbarBtn('date', !!date, label);
   _closePopovers();
+  renderHome();
+}
+
+function setCustomDateRange() {
+  const from = document.getElementById('fdate-from').value;
+  const to   = document.getElementById('fdate-to').value;
+  _activeDateFrom = from;
+  _activeDateTo   = to;
+  _activeDateFilter = (from || to) ? 'custom' : '';
+  const label = from && to ? `${from} – ${to}` : from ? `From ${from}` : to ? `Until ${to}` : 'Date';
+  _updateFbarBtn('date', !!(from || to), label);
   renderHome();
 }
 
@@ -692,6 +709,8 @@ function goHome() {
   _activeTypeFilter.clear();
   _activeStatusFilter = 'open';
   _activeDateFilter   = '';
+  _activeDateFrom     = '';
+  _activeDateTo       = '';
   _setHash('home');
   showScreen('home');
   _setNav('primary', 'home');
@@ -861,21 +880,33 @@ async function renderHome() {
     }
     if (_activeDateFilter) {
       const today = new Date(); today.setHours(0, 0, 0, 0);
-      const end   = new Date(today);
-      let start = today;
-      if      (_activeDateFilter === 'today')    { end.setDate(end.getDate() + 1); }
-      else if (_activeDateFilter === 'week')     { end.setDate(end.getDate() + 7); }
-      else if (_activeDateFilter === 'nextweek') {
-        const day = today.getDay();
-        const daysToNextMon = day === 0 ? 1 : 8 - day;
-        start = new Date(today); start.setDate(today.getDate() + daysToNextMon);
-        end.setDate(today.getDate() + daysToNextMon + 7);
+      if (_activeDateFilter === 'custom') {
+        if (_activeDateFrom || _activeDateTo) {
+          const start   = _activeDateFrom ? new Date(_activeDateFrom) : new Date(0);
+          const end     = _activeDateTo   ? new Date(_activeDateTo)   : new Date(8640000000000000);
+          end.setDate(end.getDate() + 1); // inclusive end date
+          sessions = sessions.filter(s => {
+            const d = s.date?.toDate?.() || new Date(s.date);
+            return d >= start && d < end;
+          });
+        }
+      } else {
+        const end = new Date(today);
+        let start = today;
+        if      (_activeDateFilter === 'today')    { end.setDate(end.getDate() + 1); }
+        else if (_activeDateFilter === 'week')     { end.setDate(end.getDate() + 7); }
+        else if (_activeDateFilter === 'nextweek') {
+          const day = today.getDay();
+          const daysToNextMon = day === 0 ? 1 : 8 - day;
+          start = new Date(today); start.setDate(today.getDate() + daysToNextMon);
+          end.setDate(today.getDate() + daysToNextMon + 7);
+        }
+        else if (_activeDateFilter === 'month')    { end.setMonth(end.getMonth() + 1); }
+        sessions = sessions.filter(s => {
+          const d = s.date?.toDate?.() || new Date(s.date);
+          return d >= start && d < end;
+        });
       }
-      else if (_activeDateFilter === 'month')    { end.setMonth(end.getMonth() + 1); }
-      sessions = sessions.filter(s => {
-        const d = s.date?.toDate?.() || new Date(s.date);
-        return d >= start && d < end;
-      });
     }
     const providerBannerHtml = _activeProviderFilter
       ? `<div class="provider-banner"><span class="provider-banner-label">My sessions</span><button class="provider-banner-clear" onclick="goHome()">← All sessions</button></div>`
