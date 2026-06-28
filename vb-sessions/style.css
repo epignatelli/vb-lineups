@@ -204,6 +204,13 @@ body {
 .fbar-btn.active { color: var(--text); border-bottom-color: var(--amber); }
 .fbar-caret { font-size: 8px; flex-shrink: 0; opacity: .35; margin-top: 1px; }
 .fbar-btn.active .fbar-caret { opacity: .6; }
+.fbar-reset {
+  flex-shrink: 0; align-self: center;
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 13px; padding: 0 10px; height: 100%;
+  transition: color 120ms;
+}
+.fbar-reset:hover { color: var(--red); }
 .fbar-pop {
   position: absolute; bottom: calc(100% + 6px); left: 50%;
   transform: translateX(-50%);

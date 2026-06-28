@@ -427,8 +427,7 @@
           <label class="field-label">Coaching style</label>
           <div class="check-group">
             <label class="check-opt"><input type="checkbox" class="pf-coach-style" value="Technical"> Technical</label>
-            <label class="check-opt"><input type="checkbox" class="pf-coach-style" value="Tactical"> Tactical</label>
-            <label class="check-opt"><input type="checkbox" class="pf-coach-style" value="Physical"> Physical</label>
+            <label class="check-opt"><input type="checkbox" class="pf-coach-style" value="Conditioning"> Conditioning</label>
             <label class="check-opt"><input type="checkbox" class="pf-coach-style" value="Mental"> Mental</label>
           </div>
         </div>
@@ -586,8 +585,7 @@
       <div class="fbar-pop" id="fpop-cstyle">
         <button class="fpop-opt active" data-val="" onclick="setCoachFilter('style','')">All</button>
         <button class="fpop-opt" data-val="Technical" onclick="setCoachFilter('style','Technical')">Technical</button>
-        <button class="fpop-opt" data-val="Tactical"  onclick="setCoachFilter('style','Tactical')">Tactical</button>
-        <button class="fpop-opt" data-val="Physical"  onclick="setCoachFilter('style','Physical')">Physical</button>
+        <button class="fpop-opt" data-val="Conditioning" onclick="setCoachFilter('style','Conditioning')">Conditioning</button>
         <button class="fpop-opt" data-val="Mental"    onclick="setCoachFilter('style','Mental')">Mental</button>
       </div>
       <button class="fbar-btn" id="fbtn-cstyle" onclick="toggleFilterPopover('cstyle')">
@@ -609,6 +607,18 @@
         <span id="flabel-cday">Day</span><span class="fbar-caret">▾</span>
       </button>
     </div>
+    <div class="fbar-item">
+      <div class="fbar-pop" id="fpop-cperiod">
+        <button class="fpop-opt active" data-val="" onclick="setCoachFilter('period','')">Any</button>
+        <button class="fpop-opt" data-val="am"  onclick="setCoachFilter('period','am')">Morning</button>
+        <button class="fpop-opt" data-val="pm"  onclick="setCoachFilter('period','pm')">Afternoon</button>
+        <button class="fpop-opt" data-val="eve" onclick="setCoachFilter('period','eve')">Evening</button>
+      </div>
+      <button class="fbar-btn" id="fbtn-cperiod" onclick="toggleFilterPopover('cperiod')">
+        <span id="flabel-cperiod">Time</span><span class="fbar-caret">▾</span>
+      </button>
+    </div>
+    <button class="fbar-reset" id="coach-filter-reset" onclick="resetCoachFilters()" style="display:none">✕</button>
   </div>
   <div class="fbar" id="filter-bar" style="display:none">
   <div class="fbar-item">
@@ -692,6 +702,7 @@
       <span id="flabel-gender">Gender</span><span class="fbar-caret">▾</span>
     </button>
   </div>
+  <button class="fbar-reset" id="session-filter-reset" onclick="resetSessionFilters()" style="display:none">✕</button>
 </div>
   <footer id="app-footer" class="roots-footer">
     <a class="roots-footer-link" href="../">Roots</a>

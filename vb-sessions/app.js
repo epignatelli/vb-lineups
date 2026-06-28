@@ -556,6 +556,31 @@ function _updateFbarBtn(type, isActive, label) {
   if (span) span.textContent = label;
 }
 
+function _coachFiltersActive() {
+  return _coachPosFilters.size || _coachLevelFilters.size || _coachStyleFilters.size || _coachDayFilters.size || _coachPeriodFilters.size;
+}
+
+function resetCoachFilters() {
+  _coachPosFilters.clear(); _coachLevelFilters.clear(); _coachStyleFilters.clear();
+  _coachDayFilters.clear(); _coachPeriodFilters.clear();
+  Object.values(_coachFilterMeta).forEach(m => {
+    _updateFbarBtn(m.fbarId, false, m.defaultLabel);
+    document.querySelectorAll(`#fpop-${m.fbarId} .fpop-opt`).forEach(b => b.classList.toggle('active', b.dataset.val === ''));
+  });
+  const rst = document.getElementById('coach-filter-reset');
+  if (rst) rst.style.display = 'none';
+  _applyCoachFilters();
+}
+
+function resetSessionFilters() {
+  setStatusFilter('open');
+  setTypeFilter('');
+  setDateFilter('');
+  setHostFilter('', '');
+  setLevelFilter('');
+  setGenderFilter('');
+}
+
 function _setLabel(set, defaultLabel, labelMap) {
   if (!set.size) return defaultLabel;
   if (set.size === 1) return labelMap[[...set][0]] || defaultLabel;
@@ -593,6 +618,12 @@ function _syncFilterPillsToState() {
   _updateFbarBtn('type',   _activeTypeFilter.size,   _setLabel(_activeTypeFilter, 'Type', _TYPE_LABELS));
   _updateFbarBtn('status', _activeStatusFilter !== '', _STATUS_LABELS[_activeStatusFilter] || 'Status');
   _updateFbarBtn('date',   !!_activeDateFilter, _DATE_LABELS[_activeDateFilter] || 'Date');
+  const sessionRst = document.getElementById('session-filter-reset');
+  if (sessionRst) {
+    const anyActive = _activeLevelFilter.size || _activeGenderFilter.size || _activeProviderFilter ||
+                      _activeTypeFilter.size || _activeDateFilter || (_activeStatusFilter && _activeStatusFilter !== 'open');
+    sessionRst.style.display = anyActive ? '' : 'none';
+  }
   document.querySelectorAll('#fpop-type .fpop-opt').forEach(b => {
     const v = b.dataset.type || '';
     b.classList.toggle('active', v === '' ? !_activeTypeFilter.size : _activeTypeFilter.has(v));
@@ -2526,11 +2557,12 @@ let _allUsers = [];
 let _userFilter = 'all';
 
 let _allCoaches = [];
-let _coachPosFilter   = '';   // '' | 'setter' | 'hitter' | 'middle' | 'libero'
-let _coachLevelFilter = '';   // '' | level key
-let _coachStyleFilter = '';   // '' | 'Technical' | 'Tactical' | 'Physical' | 'Mental'
-let _coachDayFilter   = '';   // '' | 'mon' | 'tue' | ... | 'sun'
-let _coachSearch      = '';
+let _coachPosFilters    = new Set();
+let _coachLevelFilters  = new Set();
+let _coachStyleFilters  = new Set();
+let _coachDayFilters    = new Set();
+let _coachPeriodFilters = new Set();
+let _coachSearch        = '';
 
 async function renderUsers() {
   const container = document.getElementById('users-content');
@@ -5808,23 +5840,31 @@ function filterCoaches() {
   _applyCoachFilters();
 }
 
+const _coachFilterMeta = {
+  pos:    { fbarId: 'cpos',    set: () => _coachPosFilters,    defaultLabel: 'Position', labels: { setter: 'Setter', hitter: 'Hitter', middle: 'Middle', libero: 'Libero' } },
+  level:  { fbarId: 'clevel',  set: () => _coachLevelFilters,  defaultLabel: 'Level',    labels: { beginner: 'Beginner', improver: 'Intermediate', intermediate: 'Advanced', advanced: 'Competitive', competitive: 'Elite' } },
+  style:  { fbarId: 'cstyle',  set: () => _coachStyleFilters,  defaultLabel: 'Style',    labels: { Technical: 'Technical', Conditioning: 'Conditioning', Mental: 'Mental' } },
+  day:    { fbarId: 'cday',    set: () => _coachDayFilters,    defaultLabel: 'Day',      labels: { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' } },
+  period: { fbarId: 'cperiod', set: () => _coachPeriodFilters, defaultLabel: 'Time',     labels: { am: 'Morning', pm: 'Afternoon', eve: 'Evening' } },
+};
+
 function setCoachFilter(type, val) {
-  const fbarId   = { pos: 'cpos', level: 'clevel', style: 'cstyle', day: 'cday' }[type];
-  const labelMap = {
-    pos:   { '': 'Position', setter: 'Setter', hitter: 'Hitter', middle: 'Middle', libero: 'Libero' },
-    level: { '': 'Level', beginner: 'Beginner', improver: 'Intermediate', intermediate: 'Advanced', advanced: 'Competitive', competitive: 'Elite' },
-    style: { '': 'Style', Technical: 'Technical', Tactical: 'Tactical', Physical: 'Physical', Mental: 'Mental' },
-    day:   { '': 'Day', mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' },
-  };
-  if (type === 'pos')   _coachPosFilter   = val;
-  if (type === 'level') _coachLevelFilter = val;
-  if (type === 'style') _coachStyleFilter = val;
-  if (type === 'day')   _coachDayFilter   = val;
-  if (fbarId) {
-    _updateFbarBtn(fbarId, !!val, (labelMap[type] || {})[val] || labelMap[type]['']);
-    document.querySelectorAll(`#fpop-${fbarId} .fpop-opt`).forEach(b => b.classList.toggle('active', b.dataset.val === val));
-    _closePopovers();
+  const meta = _coachFilterMeta[type];
+  if (!meta) return;
+  const filters = meta.set();
+  if (val === '') {
+    filters.clear();
+  } else {
+    if (filters.has(val)) filters.delete(val); else filters.add(val);
   }
+  const label = filters.size === 1 ? meta.labels[[...filters][0]] : filters.size > 1 ? String(filters.size) : meta.defaultLabel;
+  _updateFbarBtn(meta.fbarId, filters.size > 0, label);
+  document.querySelectorAll(`#fpop-${meta.fbarId} .fpop-opt`).forEach(b => {
+    b.classList.toggle('active', b.dataset.val === '' ? filters.size === 0 : filters.has(b.dataset.val));
+  });
+  _closePopovers();
+  const rst = document.getElementById('coach-filter-reset');
+  if (rst) rst.style.display = _coachFiltersActive() ? '' : 'none';
   _applyCoachFilters();
 }
 
@@ -5834,10 +5874,18 @@ function _applyCoachFilters() {
   const q = _coachSearch;
   let coaches = _allCoaches.filter(u => {
     if (q && !(u.name || '').toLowerCase().includes(q)) return false;
-    if (_coachPosFilter   && !(u.coachPositions || []).includes(_coachPosFilter))   return false;
-    if (_coachLevelFilter && !(u.coachLevels    || []).includes(_coachLevelFilter)) return false;
-    if (_coachStyleFilter && !(u.coachStyles    || []).includes(_coachStyleFilter)) return false;
-    if (_coachDayFilter   && !(u.coachDays      || []).includes(_coachDayFilter))   return false;
+    if (_coachPosFilters.size   && !(u.coachPositions || []).some(p => _coachPosFilters.has(p)))   return false;
+    if (_coachLevelFilters.size && !(u.coachLevels    || []).some(l => _coachLevelFilters.has(l))) return false;
+    if (_coachStyleFilters.size && !(u.coachStyles    || []).some(s => _coachStyleFilters.has(s))) return false;
+    if (_coachDayFilters.size || _coachPeriodFilters.size) {
+      const slots = u.coachAvailability || [];
+      const match = slots.some(slot => {
+        const [day, period] = slot.split('-');
+        return (!_coachDayFilters.size    || _coachDayFilters.has(day)) &&
+               (!_coachPeriodFilters.size || _coachPeriodFilters.has(period));
+      });
+      if (!match) return false;
+    }
     return true;
   });
   if (!coaches.length) {
