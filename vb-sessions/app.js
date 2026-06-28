@@ -5810,14 +5810,22 @@ function filterCoaches() {
 }
 
 function setCoachFilter(type, val) {
+  const fbarId   = { pos: 'cpos', level: 'clevel', style: 'cstyle', day: 'cday' }[type];
+  const labelMap = {
+    pos:   { '': 'Position', setter: 'Setter', hitter: 'Hitter', middle: 'Middle', libero: 'Libero' },
+    level: { '': 'Level', beginner: 'Beginner', improver: 'Intermediate', intermediate: 'Advanced', advanced: 'Competitive', competitive: 'Elite' },
+    style: { '': 'Style', Technical: 'Technical', Tactical: 'Tactical', Physical: 'Physical', Mental: 'Mental' },
+    day:   { '': 'Day', mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' },
+  };
   if (type === 'pos')   _coachPosFilter   = val;
   if (type === 'level') _coachLevelFilter = val;
   if (type === 'style') _coachStyleFilter = val;
   if (type === 'day')   _coachDayFilter   = val;
-  // Update active class on filter buttons in each filter group
-  document.querySelectorAll(`[data-coach-filter="${type}"]`).forEach(b => {
-    b.classList.toggle('active', b.dataset.val === val);
-  });
+  if (fbarId) {
+    _updateFbarBtn(fbarId, !!val, (labelMap[type] || {})[val] || labelMap[type]['']);
+    document.querySelectorAll(`#fpop-${fbarId} .fpop-opt`).forEach(b => b.classList.toggle('active', b.dataset.val === val));
+    _closePopovers();
+  }
   _applyCoachFilters();
 }
 
