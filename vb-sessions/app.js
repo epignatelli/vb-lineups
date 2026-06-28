@@ -353,8 +353,6 @@ function _updateAuthUI() {
   });
   const seriesFooter = document.getElementById('series-footer');
   if (seriesFooter) seriesFooter.style.display = _canCreate() ? '' : 'none';
-  const coachesFooter = document.getElementById('coaches-footer');
-  if (coachesFooter) coachesFooter.style.display = _canCreateClinic() ? '' : 'none';
   const tabsRow = document.getElementById('nav-tabs-row');
   if (tabsRow && !_currentUser) {
     tabsRow.style.display = 'none';
@@ -5780,8 +5778,6 @@ function openCoachesScreen() {
   showScreen('coaches');
   _setNav('primary', 'coaches');
   _setTitle('Coaches');
-  const coachesFooter = document.getElementById('coaches-footer');
-  if (coachesFooter) coachesFooter.style.display = _canCreateClinic() ? '' : 'none';
   _renderCoachOnboarding();
   renderCoaches();
 }
