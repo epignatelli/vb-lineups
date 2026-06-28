@@ -5086,7 +5086,7 @@ async function openVenueDetail(id) {
   showScreen('venue-detail');
   _setNav('sub', null);
   _setTitle(v.name);
-  _setBack(() => openVenuesScreen());
+  _setBack(() => history.back());
   renderVenueDetail(v);
 }
 
