@@ -4810,6 +4810,12 @@ async function openEditProfile() {
       const needsStripe  = isProvider && !data.providerOnboardingComplete;
       stripeField.style.display = needsStripe ? '' : 'none';
     }
+    const coachStripeField = document.getElementById('coach-stripe-field');
+    if (coachStripeField) {
+      const isCoachRole  = (data.roles || []).includes('coach');
+      const needsStripe  = isCoachRole && !data.providerOnboardingComplete;
+      coachStripeField.style.display = needsStripe ? '' : 'none';
+    }
     // Coach profile section — show only when user has coach role
     const coachSection = document.getElementById('coach-profile-section');
     if (coachSection) {
@@ -4983,7 +4989,7 @@ async function cancelProviderRequest() {
 }
 
 async function startProviderOnboarding() {
-  const btn = document.getElementById('provider-stripe-btn');
+  const btn = document.getElementById('provider-stripe-btn') || document.getElementById('coach-stripe-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Opening…'; }
   try {
     const { url } = await callFn('providerOnboardingLink', { uid: _currentUser.uid });
@@ -5760,6 +5766,7 @@ function _renderCoachOnboarding() {
     { label: 'Set your levels',         done: !!(u.coachLevels && u.coachLevels.length) },
     { label: 'Set your availability',   done: !!(u.coachAvailability && u.coachAvailability.length) },
     { label: 'Set your 1-1 rate',       done: !!(u.coachRate && u.coachRate > 0) },
+    { label: 'Connect Stripe',          done: !!_providerOnboardingComplete },
   ];
 
   const allDone = items.every(i => i.done);
