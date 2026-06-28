@@ -14,6 +14,32 @@ const SESSION_GENDERS = [
   { value: 'men',   label: 'Men' },
 ];
 
+// Domains not allowed in session descriptions. Add new entries here — no deploy needed beyond sw.js bump.
+const _BLOCKED_DOMAINS = [
+  // Competing group-sports / booking platforms
+  'spond.com', 'sportas.lt', 'teamapp.com', 'sportlyzer.com',
+  'teamer.net', 'pitchero.com', 'playwaze.com', 'opensports.net',
+  // Short-URL services (resolved destination unknown — block outright)
+  'bit.ly', 'tinyurl.com', 't.co', 'ow.ly', 'rb.gy', 'shorturl.at', 'is.gd', 'buff.ly',
+];
+
+function _descriptionLinkError(text) {
+  if (!text) return null;
+  const urls = text.match(/https?:\/\/[^\s)>\"']+/gi) || [];
+  for (const url of urls) {
+    let host;
+    try { host = new URL(url).hostname.replace(/^www\./, ''); } catch(_) { continue; }
+    const blocked = _BLOCKED_DOMAINS.find(d => host === d || host.endsWith('.' + d));
+    if (blocked) {
+      const isShortener = ['bit.ly','tinyurl.com','t.co','ow.ly','rb.gy','shorturl.at','is.gd','buff.ly'].includes(blocked);
+      return isShortener
+        ? `Short links (${blocked}) are not allowed — please use the full URL.`
+        : `Links to ${blocked} are not permitted in session descriptions.`;
+    }
+  }
+  return null;
+}
+
 const PHOTO_CONSENT_VERSION = '1.0';
 const TERMS_VERSION         = '1.0';
 // Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
@@ -3650,6 +3676,8 @@ window._submitInlineEdit = async function(sessionId) {
     const posSum = ['setter','hitter','middle','libero'].reduce((s, p) => s + (parseInt(document.getElementById(`ie-target-${p}`)?.value) || 0), 0);
     if (posSum > 0 && posSum !== maxVal) { errorEl.textContent = `Position targets sum to ${posSum} but max players is ${maxVal} — they must match.`; return; }
   }
+  const descLinkErr = _descriptionLinkError(document.getElementById('ie-description').value);
+  if (descLinkErr) { errorEl.textContent = descLinkErr; return; }
 
   errorEl.textContent = '';
   saveBtn.disabled = true;
