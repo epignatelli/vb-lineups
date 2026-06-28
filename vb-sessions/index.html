@@ -211,60 +211,6 @@
 <div class="screen" id="screen-coaches">
   <div class="coaches-toolbar">
     <input class="field-input users-search" id="coaches-search" type="search" placeholder="Search coaches…" oninput="filterCoaches()" />
-    <div class="fbar">
-      <div class="fbar-item">
-        <div class="fbar-pop" id="fpop-cpos">
-          <button class="fpop-opt active" data-val="" onclick="setCoachFilter('pos','')">All</button>
-          <button class="fpop-opt" data-val="setter" onclick="setCoachFilter('pos','setter')">Setter</button>
-          <button class="fpop-opt" data-val="hitter" onclick="setCoachFilter('pos','hitter')">Hitter</button>
-          <button class="fpop-opt" data-val="middle" onclick="setCoachFilter('pos','middle')">Middle</button>
-          <button class="fpop-opt" data-val="libero" onclick="setCoachFilter('pos','libero')">Libero</button>
-        </div>
-        <button class="fbar-btn active" id="fbtn-cpos" onclick="toggleFilterPopover('cpos')">
-          <span id="flabel-cpos">Position</span><span class="fbar-caret">▾</span>
-        </button>
-      </div>
-      <div class="fbar-item">
-        <div class="fbar-pop" id="fpop-clevel">
-          <button class="fpop-opt active" data-val="" onclick="setCoachFilter('level','')">All</button>
-          <button class="fpop-opt" data-val="beginner"     onclick="setCoachFilter('level','beginner')">Beginner</button>
-          <button class="fpop-opt" data-val="improver"     onclick="setCoachFilter('level','improver')">Intermediate</button>
-          <button class="fpop-opt" data-val="intermediate" onclick="setCoachFilter('level','intermediate')">Advanced</button>
-          <button class="fpop-opt" data-val="advanced"     onclick="setCoachFilter('level','advanced')">Competitive</button>
-          <button class="fpop-opt" data-val="competitive"  onclick="setCoachFilter('level','competitive')">Elite</button>
-        </div>
-        <button class="fbar-btn" id="fbtn-clevel" onclick="toggleFilterPopover('clevel')">
-          <span id="flabel-clevel">Level</span><span class="fbar-caret">▾</span>
-        </button>
-      </div>
-      <div class="fbar-item">
-        <div class="fbar-pop" id="fpop-cstyle">
-          <button class="fpop-opt active" data-val="" onclick="setCoachFilter('style','')">All</button>
-          <button class="fpop-opt" data-val="Technical" onclick="setCoachFilter('style','Technical')">Technical</button>
-          <button class="fpop-opt" data-val="Tactical"  onclick="setCoachFilter('style','Tactical')">Tactical</button>
-          <button class="fpop-opt" data-val="Physical"  onclick="setCoachFilter('style','Physical')">Physical</button>
-          <button class="fpop-opt" data-val="Mental"    onclick="setCoachFilter('style','Mental')">Mental</button>
-        </div>
-        <button class="fbar-btn" id="fbtn-cstyle" onclick="toggleFilterPopover('cstyle')">
-          <span id="flabel-cstyle">Style</span><span class="fbar-caret">▾</span>
-        </button>
-      </div>
-      <div class="fbar-item">
-        <div class="fbar-pop" id="fpop-cday">
-          <button class="fpop-opt active" data-val="" onclick="setCoachFilter('day','')">Any</button>
-          <button class="fpop-opt" data-val="mon" onclick="setCoachFilter('day','mon')">Mon</button>
-          <button class="fpop-opt" data-val="tue" onclick="setCoachFilter('day','tue')">Tue</button>
-          <button class="fpop-opt" data-val="wed" onclick="setCoachFilter('day','wed')">Wed</button>
-          <button class="fpop-opt" data-val="thu" onclick="setCoachFilter('day','thu')">Thu</button>
-          <button class="fpop-opt" data-val="fri" onclick="setCoachFilter('day','fri')">Fri</button>
-          <button class="fpop-opt" data-val="sat" onclick="setCoachFilter('day','sat')">Sat</button>
-          <button class="fpop-opt" data-val="sun" onclick="setCoachFilter('day','sun')">Sun</button>
-        </div>
-        <button class="fbar-btn" id="fbtn-cday" onclick="toggleFilterPopover('cday')">
-          <span id="flabel-cday">Day</span><span class="fbar-caret">▾</span>
-        </button>
-      </div>
-    </div>
   </div>
   <div id="coach-onboarding-banner" style="display:none"></div>
   <div class="users-content" id="coaches-list">
@@ -613,6 +559,60 @@
 
 <!-- ── Bottom chrome: filter bar (top) + footer (bottom) ───────────────── -->
 <div class="bottom-chrome">
+  <div class="fbar" id="coach-filter-bar" style="display:none">
+    <div class="fbar-item">
+      <div class="fbar-pop" id="fpop-cpos">
+        <button class="fpop-opt active" data-val="" onclick="setCoachFilter('pos','')">All</button>
+        <button class="fpop-opt" data-val="setter" onclick="setCoachFilter('pos','setter')">Setter</button>
+        <button class="fpop-opt" data-val="hitter" onclick="setCoachFilter('pos','hitter')">Hitter</button>
+        <button class="fpop-opt" data-val="middle" onclick="setCoachFilter('pos','middle')">Middle</button>
+        <button class="fpop-opt" data-val="libero" onclick="setCoachFilter('pos','libero')">Libero</button>
+      </div>
+      <button class="fbar-btn active" id="fbtn-cpos" onclick="toggleFilterPopover('cpos')">
+        <span id="flabel-cpos">Position</span><span class="fbar-caret">▾</span>
+      </button>
+    </div>
+    <div class="fbar-item">
+      <div class="fbar-pop" id="fpop-clevel">
+        <button class="fpop-opt active" data-val="" onclick="setCoachFilter('level','')">All</button>
+        <button class="fpop-opt" data-val="beginner"     onclick="setCoachFilter('level','beginner')">Beginner</button>
+        <button class="fpop-opt" data-val="improver"     onclick="setCoachFilter('level','improver')">Intermediate</button>
+        <button class="fpop-opt" data-val="intermediate" onclick="setCoachFilter('level','intermediate')">Advanced</button>
+        <button class="fpop-opt" data-val="advanced"     onclick="setCoachFilter('level','advanced')">Competitive</button>
+        <button class="fpop-opt" data-val="competitive"  onclick="setCoachFilter('level','competitive')">Elite</button>
+      </div>
+      <button class="fbar-btn" id="fbtn-clevel" onclick="toggleFilterPopover('clevel')">
+        <span id="flabel-clevel">Level</span><span class="fbar-caret">▾</span>
+      </button>
+    </div>
+    <div class="fbar-item">
+      <div class="fbar-pop" id="fpop-cstyle">
+        <button class="fpop-opt active" data-val="" onclick="setCoachFilter('style','')">All</button>
+        <button class="fpop-opt" data-val="Technical" onclick="setCoachFilter('style','Technical')">Technical</button>
+        <button class="fpop-opt" data-val="Tactical"  onclick="setCoachFilter('style','Tactical')">Tactical</button>
+        <button class="fpop-opt" data-val="Physical"  onclick="setCoachFilter('style','Physical')">Physical</button>
+        <button class="fpop-opt" data-val="Mental"    onclick="setCoachFilter('style','Mental')">Mental</button>
+      </div>
+      <button class="fbar-btn" id="fbtn-cstyle" onclick="toggleFilterPopover('cstyle')">
+        <span id="flabel-cstyle">Style</span><span class="fbar-caret">▾</span>
+      </button>
+    </div>
+    <div class="fbar-item">
+      <div class="fbar-pop" id="fpop-cday">
+        <button class="fpop-opt active" data-val="" onclick="setCoachFilter('day','')">Any</button>
+        <button class="fpop-opt" data-val="mon" onclick="setCoachFilter('day','mon')">Mon</button>
+        <button class="fpop-opt" data-val="tue" onclick="setCoachFilter('day','tue')">Tue</button>
+        <button class="fpop-opt" data-val="wed" onclick="setCoachFilter('day','wed')">Wed</button>
+        <button class="fpop-opt" data-val="thu" onclick="setCoachFilter('day','thu')">Thu</button>
+        <button class="fpop-opt" data-val="fri" onclick="setCoachFilter('day','fri')">Fri</button>
+        <button class="fpop-opt" data-val="sat" onclick="setCoachFilter('day','sat')">Sat</button>
+        <button class="fpop-opt" data-val="sun" onclick="setCoachFilter('day','sun')">Sun</button>
+      </div>
+      <button class="fbar-btn" id="fbtn-cday" onclick="toggleFilterPopover('cday')">
+        <span id="flabel-cday">Day</span><span class="fbar-caret">▾</span>
+      </button>
+    </div>
+  </div>
   <div class="fbar" id="filter-bar" style="display:none">
   <div class="fbar-item">
     <div class="fbar-pop" id="fpop-status">

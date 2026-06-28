@@ -302,9 +302,12 @@ function _setNav(mode, activeTab) {
   const showFilters = showTabs && activeTab === 'home';
   if (tabsRow) tabsRow.style.display = showTabs ? 'flex' : 'none';
   if (backBtn) backBtn.style.display = isPrimary ? 'none' : '';
-  const filterBar = document.getElementById('filter-bar');
+  const filterBar      = document.getElementById('filter-bar');
+  const coachFilterBar = document.getElementById('coach-filter-bar');
+  const showCoachFilters = showTabs && activeTab === 'coaches';
   const wasHidden = filterBar && filterBar.style.display === 'none';
-  if (filterBar) filterBar.style.display = showFilters ? 'flex' : 'none';
+  if (filterBar)      filterBar.style.display      = showFilters      ? 'flex' : 'none';
+  if (coachFilterBar) coachFilterBar.style.display = showCoachFilters ? 'flex' : 'none';
   if (showFilters && wasHidden) _loadHostFilterPills();
   document.documentElement.style.setProperty('--header-h', showTabs ? '95px' : '55px');
   document.querySelectorAll('.admin-tab').forEach(t => {
