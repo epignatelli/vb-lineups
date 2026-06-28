@@ -5124,7 +5124,7 @@ function renderVenueDetail(v) {
         </div>` : ''}
     </div>
 
-    <button class="cta-btn secondary-btn" style="margin-top:8px" onclick="openVenueForm('${v.id}')">Edit venue</button>
+    <button class="venue-edit-btn" onclick="openVenueForm('${v.id}')">Edit venue</button>
   `;
 }
 
