@@ -342,6 +342,7 @@ function _updateAuthUI() {
     } else {
       avatarWrap.innerHTML = `<button class="auth-btn" onclick="handleAuthClick()">Sign in</button>`;
     }
+    avatarWrap.style.visibility = 'visible';
   }
   // Refresh admin-only tabs and tab strip visibility
   document.querySelectorAll('.admin-tab').forEach(t => {
