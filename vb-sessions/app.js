@@ -522,7 +522,7 @@ async function _routeFromHash() {
   else { renderHome(); }
 }
 
-const _LEVEL_LABELS  = { '': 'Level', any: 'Any level', beginner: 'Beginner', improver: 'Improver', intermediate: 'Advanced', advanced: 'Competit.', competitive: 'Elite' };
+const _LEVEL_LABELS  = { '': 'Level', any: 'Any level', beginner: 'Beginner', improver: 'Intermediate', intermediate: 'Advanced', advanced: 'Competit.', competitive: 'Elite' };
 const _GENDER_LABELS = { '': 'Gender', mixed: 'Mixed', women: 'Women', men: 'Men' };
 
 function _updateFbarBtn(type, isActive, label) {
