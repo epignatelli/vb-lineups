@@ -5031,10 +5031,10 @@ function _renderInsightsUI(container) {
 
 const _LEVEL_INFO = [
   { key: 'beginner',     label: 'Beginner',     lva: 'Recreational',               desc: 'New to volleyball or just starting out. Learning the rules and basic technique. Focus on fun and development.' },
-  { key: 'improver',     label: 'Intermediate', lva: 'Recreational / LVA Div 3',   desc: 'You play regularly and are comfortable on court. Understand basic rotations and can perform core skills with some consistency.' },
-  { key: 'intermediate', label: 'Advanced',     lva: 'LVA Division 3',             desc: 'Experienced club player. Comfortable with 3-touch play, rotations, and position-specific skills. May not have played on an organised team.' },
-  { key: 'advanced',     label: 'Competitive',  lva: 'LVA Divisions 1–2',          desc: 'Played on an organised team with coaching. Strong fundamentals, some advanced skills, and a clear positional role.' },
-  { key: 'competitive',  label: 'Elite',        lva: 'LVA Première · Superleague', desc: 'College, club, semi-pro or international experience. High volleyball IQ and the ability to perform consistently under pressure.' },
+  { key: 'improver',     label: 'Intermediate', lva: 'Recreational',               desc: 'You play regularly and are comfortable on court. Understand basic rotations and can perform core skills with some consistency.' },
+  { key: 'intermediate', label: 'Advanced',     lva: 'London League Div 2–3',      desc: 'Experienced club player. Comfortable with 3-touch play, rotations, and position-specific skills. May not have played on an organised team.' },
+  { key: 'advanced',     label: 'Competitive',  lva: 'London League Div 1',        desc: 'Played on an organised team with coaching. Strong fundamentals, some advanced skills, and a clear positional role.' },
+  { key: 'competitive',  label: 'Elite',        lva: 'Première · Superleague',     desc: 'College, club, semi-pro or international experience. High volleyball IQ and the ability to perform consistently under pressure.' },
 ];
 
 window.openLevelInfo = function(activeLevel) {
