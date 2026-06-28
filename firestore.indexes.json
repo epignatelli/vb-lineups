@@ -8,6 +8,23 @@
         { "fieldPath": "status",   "order": "ASCENDING" },
         { "fieldPath": "date",     "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "coachBookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "coachUid",  "order": "ASCENDING" },
+        { "fieldPath": "status",    "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "coachBookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "playerUid", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
