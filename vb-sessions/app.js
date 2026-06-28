@@ -5752,7 +5752,7 @@ function _renderCoachOnboarding() {
   el.style.display = '';
   el.innerHTML = `
     <details class="coach-onboarding" open>
-      <summary class="coach-onboarding-header collapsible-title">
+      <summary class="coach-onboarding-header">
         <strong>Complete your coach profile</strong>
         <span class="coach-onboarding-progress">${done}/${items.length}</span>
       </summary>
