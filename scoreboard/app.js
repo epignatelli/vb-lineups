@@ -154,13 +154,24 @@ function editName(e, team) {
   const commit = () => {
     _state[key] = input.value.trim() || old;
     _save();
+    document.removeEventListener('touchstart', onOutside, true);
+    document.removeEventListener('mousedown',  onOutside, true);
     render();
   };
-  input.addEventListener('blur', commit);
+
+  const onOutside = ev => {
+    if (!input.contains(ev.target)) input.blur();
+  };
+
+  input.addEventListener('blur', commit, { once: true });
   input.addEventListener('keydown', ev => {
     if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
     if (ev.key === 'Escape') { input.value = old; input.blur(); }
   });
+
+  // Use capture so we hear the tap before the panel's onclick fires
+  document.addEventListener('touchstart', onOutside, true);
+  document.addEventListener('mousedown',  onOutside, true);
 }
 
 // ── Overlays ──────────────────────────────────────────────────────────────────
