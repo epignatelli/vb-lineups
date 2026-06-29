@@ -5069,6 +5069,7 @@ async function openEditProfile() {
       cb.checked = posSet.has(cb.value);
     });
     _updateCoachRequestBtn(data);
+    _updateRefRequestBtn(data);
     const stripeField = document.getElementById('provider-stripe-field');
     if (stripeField) {
       const isProvider   = (data.roles || []).includes('provider');
@@ -5325,6 +5326,47 @@ function _updateCoachRequestBtn(data) {
   }
 }
 
+
+function _updateRefRequestBtn(data) {
+  const field  = document.getElementById('ref-request-field');
+  const btn    = document.getElementById('ref-request-btn');
+  if (!field || !btn) return;
+  const isRef     = (data.roles || []).includes('referee');
+  const isPending = _isOpenRequest(data.refereeRequest);
+  if (isRef) {
+    field.style.display = 'none';
+    return;
+  }
+  field.style.display = '';
+  if (isPending) {
+    btn.textContent = 'Referee request pending';
+    btn.disabled    = true;
+    btn.className   = 'coach-request-btn pending';
+  } else {
+    btn.textContent = 'Request referee status →';
+    btn.disabled    = false;
+    btn.className   = 'coach-request-btn';
+  }
+}
+
+async function requestRefStatus() {
+  if (!_currentUser) return;
+  const btn = document.getElementById('ref-request-btn');
+  if (btn) btn.disabled = true;
+  try {
+    await _userRef(_currentUser.uid).update({
+      refereeRequest: _requestObj(),
+      updatedAt:      firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    await callFn('notifyAdminRequest', { uid: _currentUser.uid, name: _currentUser.displayName || '', role: 'referee' });
+    showToast('Referee request sent — an admin will review it.');
+    closeEditProfile();
+  } catch(e) {
+    console.error('Referee request failed:', e);
+    if (btn) btn.disabled = false;
+    showToast('Couldn\'t send request. Try again.', 'error');
+  }
+}
 
 // ─── Policy overlay ────────────────────────────────────────────────────────────
 function openPolicy() {
