@@ -24,6 +24,11 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('roles', []).hasAny(['coach']);
     }
 
+    function isReferee() {
+      return request.auth != null
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('roles', []).hasAny(['referee']);
+    }
+
     function isSessionCoach(sessionId) {
       return get(/databases/$(database)/documents/sessions/$(sessionId)).data.coachUid
              == request.auth.uid;
@@ -175,10 +180,11 @@ service cloud.firestore {
                          .affectedKeys().hasOnly([
                            'name','email','photoURL','updatedAt',
                            'gender','level','positions','bio',
-                           'coachRequest','providerRequest',
+                           'coachRequest','providerRequest','refereeRequest',
                            'photoConsent','termsAccepted','ageConsent',
                            'coachBio','coachPositions','coachLevels','coachStyles','coachRate','coach1to1Enabled',
-                           'coachAvailability'
+                           'coachAvailability',
+                           'refBio','refCertification','refLevels','refTypes','refAvailability','refRate'
                          ]);
       allow delete: if isAdmin();
 
@@ -208,6 +214,25 @@ service cloud.firestore {
       allow update: if request.auth != null
                     && (
                       (request.auth.uid == resource.data.coachUid
+                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
+                      || isAdmin()
+                    );
+      allow delete: if isAdmin();
+    }
+    match /refRequests/{requestId} {
+      allow read: if request.auth != null
+                  && (request.auth.uid == resource.data.requesterUid
+                      || request.auth.uid == resource.data.refUid
+                      || isAdmin());
+      allow create: if request.auth != null
+                    && request.resource.data.requesterUid == request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.keys().hasOnly([
+                         'refUid','requesterUid','requesterName','date','note','status','createdAt'
+                       ]);
+      allow update: if request.auth != null
+                    && (
+                      (request.auth.uid == resource.data.refUid
                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
                       || isAdmin()
                     );

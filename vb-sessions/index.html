@@ -50,6 +50,7 @@
     <button class="nav-tab"            data-tab="home"     onclick="goHome()">Sessions</button>
     <button class="nav-tab"            data-tab="series"   onclick="openSeriesScreen()">Passes</button>
     <button class="nav-tab"            data-tab="coaches"  onclick="openCoachesScreen()">Coaches</button>
+    <button class="nav-tab"            data-tab="refs"     onclick="openRefsScreen()">Refs</button>
     <button class="nav-tab admin-tab"  data-tab="finances" onclick="openFinancesScreen()">Finances</button>
     <button class="nav-tab admin-tab"  data-tab="insights" onclick="openInsightsScreen()">Insights</button>
     <button class="nav-tab admin-tab"  data-tab="admin"    onclick="openAdminScreen()">Admin</button>
@@ -214,6 +215,19 @@
   </div>
   <div id="coach-onboarding-banner" style="display:none"></div>
   <div class="users-content" id="coaches-list">
+    <div class="home-empty">Loading…</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SCREEN — REFS DIRECTORY
+══════════════════════════════════════════════════ -->
+<div class="screen" id="screen-refs">
+  <div class="coaches-toolbar">
+    <input class="field-input users-search" id="refs-search" type="search" placeholder="Search referees…" oninput="filterRefs()" />
+  </div>
+  <div id="ref-onboarding-banner" style="display:none"></div>
+  <div class="users-content" id="refs-list">
     <div class="home-empty">Loading…</div>
   </div>
 </div>
@@ -452,6 +466,53 @@
           <p class="field-hint">Required to receive payments for 1-1 sessions.</p>
         </div>
       </div>
+
+      <div id="ref-profile-section" style="display:none">
+        <div class="form-section-header">Referee</div>
+        <div class="field">
+          <label class="field-label">Certification <span class="field-optional">(e.g. FIVB Level 2, BVF National)</span></label>
+          <input class="field-input" type="text" id="pf-ref-cert" maxlength="120" placeholder="Your certification(s)…" />
+        </div>
+        <div class="field">
+          <label class="field-label">Bio <span class="field-optional">(optional)</span></label>
+          <textarea class="field-input field-textarea" id="pf-ref-bio" maxlength="280" placeholder="Your refereeing experience, approach…"></textarea>
+        </div>
+        <div class="field">
+          <label class="field-label">Levels you referee</label>
+          <div class="check-group">
+            <label class="check-opt"><input type="checkbox" class="pf-ref-lvl" value="beginner"> Beginner</label>
+            <label class="check-opt"><input type="checkbox" class="pf-ref-lvl" value="improver"> Intermediate</label>
+            <label class="check-opt"><input type="checkbox" class="pf-ref-lvl" value="intermediate"> Advanced</label>
+            <label class="check-opt"><input type="checkbox" class="pf-ref-lvl" value="advanced"> Competitive</label>
+            <label class="check-opt"><input type="checkbox" class="pf-ref-lvl" value="competitive"> Elite</label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">Session types you referee</label>
+          <div class="check-group">
+            <label class="check-opt"><input type="checkbox" class="pf-ref-type" value="game"> Game</label>
+            <label class="check-opt"><input type="checkbox" class="pf-ref-type" value="tournament"> Tournament</label>
+            <label class="check-opt"><input type="checkbox" class="pf-ref-type" value="league"> League</label>
+            <label class="check-opt"><input type="checkbox" class="pf-ref-type" value="training"> Training</label>
+            <label class="check-opt"><input type="checkbox" class="pf-ref-type" value="clinic"> Clinic</label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">Weekly availability</label>
+          <div class="avail-grid" id="pf-ref-avail-grid">
+            <!-- rendered by _renderRefAvailGrid() -->
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">Rate (£/session)</label>
+          <input class="field-input" type="number" id="pf-ref-rate" min="0" step="5" placeholder="e.g. 30" />
+        </div>
+        <div class="field" id="ref-stripe-field" style="display:none">
+          <label class="field-label">Payments</label>
+          <button class="cta-btn" id="ref-stripe-btn" onclick="startProviderOnboarding(this)">Connect Stripe →</button>
+          <p class="field-hint">Required to receive payments for refereeing.</p>
+        </div>
+      </div>
     </div>
     <div class="form-error" id="edit-profile-error"></div>
     <button class="cta-btn" id="edit-profile-save-btn" onclick="saveProfile()">Save →</button>
@@ -531,6 +592,28 @@
     </div>
     <div id="bk-error" class="form-error" style="display:none"></div>
     <button class="cta-btn" id="bk-submit-btn" onclick="submitBookingRequest()">Send request</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     OVERLAY — REQUEST REF AVAILABILITY
+══════════════════════════════════════════════════ -->
+<div class="overlay" id="ref-request-overlay">
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Request availability</span>
+      <button class="panel-close" onclick="closeRefRequestForm()">✕</button>
+    </div>
+    <div class="field">
+      <label class="field-label">Preferred date</label>
+      <input class="field-input" type="date" id="rr-date" />
+    </div>
+    <div class="field">
+      <label class="field-label">Note <span class="field-optional">(optional)</span></label>
+      <textarea class="field-input field-textarea" id="rr-note" maxlength="200" rows="3" placeholder="e.g. Tournament final, need FIVB-certified…"></textarea>
+    </div>
+    <div id="rr-error" class="form-error" style="display:none"></div>
+    <button class="cta-btn" id="rr-submit-btn" onclick="submitRefRequest()">Send request</button>
   </div>
 </div>
 
@@ -619,6 +702,61 @@
       </button>
     </div>
     <button class="fbar-reset" id="coach-filter-reset" onclick="resetCoachFilters()" style="display:none">✕</button>
+  </div>
+  <div class="fbar" id="ref-filter-bar" style="display:none">
+    <div class="fbar-item">
+      <div class="fbar-pop" id="fpop-rlevel">
+        <button class="fpop-opt active" data-val="" onclick="setRefFilter('level','')">All</button>
+        <button class="fpop-opt" data-val="beginner"     onclick="setRefFilter('level','beginner')">Beginner</button>
+        <button class="fpop-opt" data-val="improver"     onclick="setRefFilter('level','improver')">Intermediate</button>
+        <button class="fpop-opt" data-val="intermediate" onclick="setRefFilter('level','intermediate')">Advanced</button>
+        <button class="fpop-opt" data-val="advanced"     onclick="setRefFilter('level','advanced')">Competitive</button>
+        <button class="fpop-opt" data-val="competitive"  onclick="setRefFilter('level','competitive')">Elite</button>
+      </div>
+      <button class="fbar-btn" id="fbtn-rlevel" onclick="toggleFilterPopover('rlevel')">
+        <span id="flabel-rlevel">Level</span><span class="fbar-caret">▾</span>
+      </button>
+    </div>
+    <div class="fbar-item">
+      <div class="fbar-pop" id="fpop-rtype">
+        <button class="fpop-opt active" data-val="" onclick="setRefFilter('type','')">All</button>
+        <button class="fpop-opt" data-val="game"       onclick="setRefFilter('type','game')">Game</button>
+        <button class="fpop-opt" data-val="tournament" onclick="setRefFilter('type','tournament')">Tournament</button>
+        <button class="fpop-opt" data-val="league"     onclick="setRefFilter('type','league')">League</button>
+        <button class="fpop-opt" data-val="training"   onclick="setRefFilter('type','training')">Training</button>
+        <button class="fpop-opt" data-val="clinic"     onclick="setRefFilter('type','clinic')">Clinic</button>
+      </div>
+      <button class="fbar-btn" id="fbtn-rtype" onclick="toggleFilterPopover('rtype')">
+        <span id="flabel-rtype">Type</span><span class="fbar-caret">▾</span>
+      </button>
+    </div>
+    <div class="fbar-item">
+      <div class="fbar-pop" id="fpop-rday">
+        <button class="fpop-opt active" data-val="" onclick="setRefFilter('day','')">Any</button>
+        <button class="fpop-opt" data-val="mon" onclick="setRefFilter('day','mon')">Mon</button>
+        <button class="fpop-opt" data-val="tue" onclick="setRefFilter('day','tue')">Tue</button>
+        <button class="fpop-opt" data-val="wed" onclick="setRefFilter('day','wed')">Wed</button>
+        <button class="fpop-opt" data-val="thu" onclick="setRefFilter('day','thu')">Thu</button>
+        <button class="fpop-opt" data-val="fri" onclick="setRefFilter('day','fri')">Fri</button>
+        <button class="fpop-opt" data-val="sat" onclick="setRefFilter('day','sat')">Sat</button>
+        <button class="fpop-opt" data-val="sun" onclick="setRefFilter('day','sun')">Sun</button>
+      </div>
+      <button class="fbar-btn" id="fbtn-rday" onclick="toggleFilterPopover('rday')">
+        <span id="flabel-rday">Day</span><span class="fbar-caret">▾</span>
+      </button>
+    </div>
+    <div class="fbar-item">
+      <div class="fbar-pop" id="fpop-rperiod">
+        <button class="fpop-opt active" data-val="" onclick="setRefFilter('period','')">Any</button>
+        <button class="fpop-opt" data-val="am"  onclick="setRefFilter('period','am')">Morning</button>
+        <button class="fpop-opt" data-val="pm"  onclick="setRefFilter('period','pm')">Afternoon</button>
+        <button class="fpop-opt" data-val="eve" onclick="setRefFilter('period','eve')">Evening</button>
+      </div>
+      <button class="fbar-btn" id="fbtn-rperiod" onclick="toggleFilterPopover('rperiod')">
+        <span id="flabel-rperiod">Time</span><span class="fbar-caret">▾</span>
+      </button>
+    </div>
+    <button class="fbar-reset" id="ref-filter-reset" onclick="resetRefFilters()" style="display:none">✕</button>
   </div>
   <div class="fbar" id="filter-bar" style="display:none">
   <div class="fbar-item">

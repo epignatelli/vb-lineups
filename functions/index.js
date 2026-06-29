@@ -51,7 +51,7 @@ async function _resolveCallerRole(db, decoded) {
 
 // Syncs safe public fields from a user doc to publicProfiles/{uid}.
 async function _syncPublicProfile(db, uid, data) {
-  const publicRoles = (data.roles || ['player']).filter(r => ['player', 'coach', 'provider'].includes(r));
+  const publicRoles = (data.roles || ['player']).filter(r => ['player', 'coach', 'provider', 'referee'].includes(r));
   await db.collection('publicProfiles').doc(uid).set({
     name:              data.name              || null,
     photoURL:          data.photoURL          || null,
@@ -63,12 +63,19 @@ async function _syncPublicProfile(db, uid, data) {
     roles:             publicRoles,
     isProvider:        publicRoles.includes('provider'),
     isCoach:           publicRoles.includes('coach'),
+    isReferee:         publicRoles.includes('referee'),
     coachBio:          data.coachBio          || null,
     coachPositions:    data.coachPositions     || [],
     coachLevels:       data.coachLevels        || [],
     coachStyles:       data.coachStyles        || [],
     coachRate:         data.coachRate          != null ? data.coachRate : null,
     coach1to1Enabled:  data.coach1to1Enabled   || false,
+    refBio:            data.refBio             || null,
+    refCertification:  data.refCertification   || null,
+    refLevels:         data.refLevels          || [],
+    refTypes:          data.refTypes           || [],
+    refAvailability:   data.refAvailability    || [],
+    refRate:           data.refRate            != null ? data.refRate : null,
   }, { merge: false });
 }
 
@@ -2146,6 +2153,34 @@ exports.notifyCoachBookingRequest = onDocumentCreated({
       `<strong>${_hEsc(booking.playerName)}</strong> has requested a ${booking.duration}-minute ${fmtLabel} session.`,
       `<strong>Preferred:</strong> ${_hEsc(dateStr)}${slotLabel ? `, ${slotLabel}` : ''}`,
       booking.note ? `<strong>Note:</strong> ${_hEsc(booking.note)}` : '',
+      `Log in to accept or decline this request.`,
+    ].filter(Boolean), null, appUrl, 'Open app →')
+  );
+});
+
+// ── notifyRefRequest ──────────────────────────────────────────────────────────
+// Triggered when a requester creates a new refRequests document.
+// Emails the referee to let them know about the availability request.
+exports.notifyRefRequest = onDocumentCreated({
+  document: 'refRequests/{requestId}',
+  region:   REGION_FIRESTORE,
+  secrets:  [GMAIL_APP_PASSWORD],
+}, async (event) => {
+  const req = event.data.data();
+  const db = getFirestore();
+  const refDoc = await db.collection('users').doc(req.refUid).get();
+  if (!refDoc.exists) return;
+  const referee = refDoc.data();
+  if (!referee.email) return;
+
+  const appUrl = APP_URL;
+  await sendEmail(
+    referee.email,
+    `New availability request from ${req.requesterName}`,
+    _emailHtml(`Hi ${referee.name || 'there'},`, [
+      `<strong>${_hEsc(req.requesterName)}</strong> has requested your availability as a referee.`,
+      req.date ? `<strong>Preferred date:</strong> ${_hEsc(req.date)}` : '',
+      req.note ? `<strong>Note:</strong> ${_hEsc(req.note)}` : '',
       `Log in to accept or decline this request.`,
     ].filter(Boolean), null, appUrl, 'Open app →')
   );

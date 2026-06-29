@@ -61,6 +61,7 @@ let _currentUser  = null;
 let _currentRoles = [];
 let _isAdmin                  = false;
 let _isCoach                  = false;
+let _isReferee                = false;
 let _isProvider               = false;
 let _isOwner                  = false;
 let _providerOnboardingComplete = false;
@@ -236,10 +237,12 @@ function _subscribeToUserDoc(user) {
     _isOwner = _currentRoles.includes('owner');
     _isAdmin    = _isOwner || _currentRoles.includes('admin');
     _isCoach    = _currentRoles.includes('coach');
+    _isReferee  = _currentRoles.includes('referee');
     _isProvider = _currentRoles.includes('provider');
     _providerOnboardingComplete = !!_currentUserDoc.providerOnboardingComplete;
     _updateAuthUI();
     _renderCoachOnboarding();
+    _renderRefOnboarding();
     if (_pendingProviderRequest) {
       _pendingProviderRequest = false;
       if (_isProvider) _showProviderSessions(_currentUser?.uid);
@@ -304,10 +307,13 @@ function _setNav(mode, activeTab) {
   if (backBtn) backBtn.style.display = isPrimary ? 'none' : '';
   const filterBar      = document.getElementById('filter-bar');
   const coachFilterBar = document.getElementById('coach-filter-bar');
+  const refFilterBar   = document.getElementById('ref-filter-bar');
   const showCoachFilters = showTabs && activeTab === 'coaches';
+  const showRefFilters   = showTabs && activeTab === 'refs';
   const wasHidden = filterBar && filterBar.style.display === 'none';
   if (filterBar)      filterBar.style.display      = showFilters      ? 'flex' : 'none';
   if (coachFilterBar) coachFilterBar.style.display = showCoachFilters ? 'flex' : 'none';
+  if (refFilterBar)   refFilterBar.style.display   = showRefFilters   ? 'flex' : 'none';
   if (showFilters && wasHidden) _loadHostFilterPills();
   document.documentElement.style.setProperty('--header-h', showTabs ? '95px' : '55px');
   document.querySelectorAll('.admin-tab').forEach(t => {
@@ -376,6 +382,7 @@ getAuth().onAuthStateChanged(async user => {
       _isOwner    = _currentRoles.includes('owner');
       _isAdmin    = _isOwner || _currentRoles.includes('admin');
       _isCoach    = _currentRoles.includes('coach');
+      _isReferee  = _currentRoles.includes('referee');
       _isProvider = _currentRoles.includes('provider');
       _providerOnboardingComplete = !!snap.data()?.providerOnboardingComplete;
     } catch(e) {}
@@ -419,6 +426,7 @@ getAuth().onAuthStateChanged(async user => {
     _currentUserDoc             = null;
     _isAdmin  = false;
     _isCoach                   = false;
+    _isReferee                  = false;
     _isProvider                 = false;
     _isOwner                    = false;
     _providerOnboardingComplete = false;
@@ -493,6 +501,7 @@ async function _routeFromHash() {
   if (hash === 'admin')         { if (_isAdmin) openAdminScreen();    else renderHome(); return; }
   if (hash === 'series')        { openSeriesScreen(); return; }
   if (hash === 'coaches')       { openCoachesScreen(); return; }
+  if (hash === 'refs')          { openRefsScreen(); return; }
   if (hash === 'coach') {
     if (_currentUser) { openProfileScreen(); }
     else { _pendingCoachRequest = true; goHome(); showToast('Sign in to request coach status'); }
@@ -2564,6 +2573,15 @@ let _coachDayFilters    = new Set();
 let _coachPeriodFilters = new Set();
 let _coachSearch        = '';
 
+let _allRefs = [];
+let _refLevelFilters  = new Set();
+let _refTypeFilters   = new Set();
+let _refDayFilters    = new Set();
+let _refPeriodFilters = new Set();
+let _refSearch        = '';
+
+let _bookingRef = null; // { uid, refData } when ref request overlay is open
+
 async function renderUsers() {
   const container = document.getElementById('users-content');
   container.innerHTML = '<div class="home-empty">Loading…</div>';
@@ -2856,9 +2874,11 @@ async function openProfileScreen(uid) {
     const hasOwner           = roles.includes('owner');
     const hasAdmin           = roles.includes('admin');
     const hasCoach           = roles.includes('coach');
+    const hasReferee         = roles.includes('referee');
     const hasProvider        = roles.includes('provider');
     const hasPending         = _isOpenRequest(u.coachRequest) && !hasCoach;
     const hasPendingProvider = _isOpenRequest(u.providerRequest) && !hasProvider;
+    const hasPendingRef      = _isOpenRequest(u.refereeRequest) && !hasReferee;
 
     if (isOwn) _setTitle('Your profile');
 
@@ -2866,15 +2886,16 @@ async function openProfileScreen(uid) {
     const genderLabel = { man: 'Man', woman: 'Woman', nonbinary: 'Non-binary' }[u.gender] || '';
     const levelLabel  = { beginner: 'Beginner', improver: 'Intermediate', intermediate: 'Advanced', advanced: 'Competitive', competitive: 'Elite' }[u.level] || '';
     const initials    = (u.name || u.email || '?')[0].toUpperCase();
-    const roleOrder   = ['owner', 'admin', 'provider', 'coach'];
+    const roleOrder   = ['owner', 'admin', 'provider', 'coach', 'referee'];
     const displayRoles = roleOrder.filter(r => roles.includes(r));
 
-    const roleLabel = { owner: 'sudo', admin: 'admin', provider: 'host', coach: 'coach' };
+    const roleLabel = { owner: 'sudo', admin: 'admin', provider: 'host', coach: 'coach', referee: 'ref' };
     const roleBadges = displayRoles.map(r => {
       const cls = r === 'owner'    ? 'level owner-badge-lg'
                 : r === 'admin'    ? 'level admin-badge-lg'
                 : r === 'provider' ? 'level provider-badge-lg'
                 : r === 'coach'    ? 'level coach-badge-lg'
+                : r === 'referee'  ? 'level ref-badge-lg'
                 : 'level';
       return `<span class="session-badge ${cls}">${roleLabel[r] || r}</span>`;
     }).join(' ');
@@ -2919,6 +2940,14 @@ async function openProfileScreen(uid) {
               : hasPendingProvider
                 ? `<div style="display:flex;align-items:center;gap:8px"><span class="role-status-pending">Pending</span><button class="role-status-btn" onclick="cancelProviderRequest()">Cancel</button></div>`
                 : `<button class="role-status-btn" id="provider-request-view-btn" onclick="requestProviderStatusFromView()">Request →</button>`}
+          </div>
+          <div class="role-status-row">
+            <span class="role-status-name">Referee</span>
+            ${hasReferee
+              ? _roleCheck
+              : hasPendingRef
+                ? `<div style="display:flex;align-items:center;gap:8px"><span class="role-status-pending">Pending</span><button class="role-status-btn" onclick="cancelRefereeRequest()">Cancel</button></div>`
+                : `<button class="role-status-btn" id="referee-request-view-btn" onclick="requestRefereeStatusFromView()">Request →</button>`}
           </div>
           <div class="role-status-row role-status-row--dim">
             <span class="role-status-name">Admin</span>
@@ -3013,10 +3042,13 @@ async function openProfileScreen(uid) {
     const showCoachBookings  = isOwn && _isCoach;
     // Show player's outgoing booking requests on their own profile
     const showPlayerBookings = isOwn && _currentUser;
+    // Show incoming ref requests to the referee on their own profile
+    const showRefRequests       = isOwn && _isReferee;
+    const showPlayerRefRequests = isOwn && !!_currentUser;
 
-    // Fetch all data in parallel: coach sessions, all series docs, all session docs, upcoming clinics, bookings
+    // Fetch all data in parallel: coach sessions, all series docs, all session docs, upcoming clinics, bookings, ref requests
     const todayTs = firebase.firestore.Timestamp.fromDate(new Date(new Date().setHours(0,0,0,0)));
-    const [coachSessionsSnap, allSeriesSnap, allSessionsSnap, upcomingClinicsSnap, coachBookingsSnap, playerBookingsSnap] = await Promise.all([
+    const [coachSessionsSnap, allSeriesSnap, allSessionsSnap, upcomingClinicsSnap, coachBookingsSnap, playerBookingsSnap, refRequestsSnap, playerRefRequestsSnap] = await Promise.all([
       showCoach
         ? _sessionsRef().where('coachUid', '==', targetUid).where('status', '==', 'closed').orderBy('date', 'desc').limit(25).get().catch(() => null)
         : Promise.resolve(null),
@@ -3034,6 +3066,12 @@ async function openProfileScreen(uid) {
         : Promise.resolve(null),
       showPlayerBookings
         ? getDb().collection('coachBookings').where('playerUid', '==', _currentUser.uid).orderBy('createdAt', 'desc').limit(10).get().catch(() => null)
+        : Promise.resolve(null),
+      showRefRequests
+        ? getDb().collection('refRequests').where('refUid', '==', targetUid).where('status', '==', 'pending').orderBy('createdAt', 'asc').limit(20).get().catch(() => null)
+        : Promise.resolve(null),
+      showPlayerRefRequests
+        ? getDb().collection('refRequests').where('requesterUid', '==', _currentUser.uid).orderBy('createdAt', 'desc').limit(10).get().catch(() => null)
         : Promise.resolve(null),
     ]);
 
@@ -3181,6 +3219,47 @@ async function openProfileScreen(uid) {
          </div>`
       : '';
 
+    // ── Referee public section ───────────────────────────────────────────────────
+    const _availDayLabelRef    = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
+    const _availPeriodLabelRef = { am: 'morning', pm: 'afternoon', eve: 'evening' };
+    const _lvlLabelRef = { beginner: 'Beginner', improver: 'Intermediate', intermediate: 'Advanced', advanced: 'Competitive', competitive: 'Elite' };
+    const refProfileSection = hasReferee ? (() => {
+      const cert      = u.refCertification;
+      const bio       = u.refBio;
+      const lvlMeta   = (u.refLevels    || []).map(l => _lvlLabelRef[l] || l).join(', ');
+      const typeMeta  = (u.refTypes     || []).map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ');
+      const availSlots = (u.refAvailability || []);
+      const availMeta  = availSlots.length
+        ? availSlots.map(s => {
+            const [day, period] = s.split('-');
+            return `${_availDayLabelRef[day] || day} ${_availPeriodLabelRef[period] || period}`;
+          }).join(' · ')
+        : '';
+      const rateLine  = u.refRate != null ? `£${u.refRate}/session` : '';
+      return `
+        <details class="detail-section ref-section" open>
+          <summary class="detail-section-title collapsible-title">Referee</summary>
+          ${cert ? `<div class="ref-cert-badge">${esc(cert)}</div>` : ''}
+          ${bio ? `<div class="detail-description" style="margin-bottom:10px">${esc(bio)}</div>` : ''}
+          <div class="detail-meta-grid">
+            ${lvlMeta   ? `<div class="detail-meta-row"><span class="detail-meta-label">Levels</span><span>${esc(lvlMeta)}</span></div>` : ''}
+            ${typeMeta  ? `<div class="detail-meta-row"><span class="detail-meta-label">Types</span><span>${esc(typeMeta)}</span></div>` : ''}
+            ${rateLine  ? `<div class="detail-meta-row"><span class="detail-meta-label">Rate</span><span>${esc(rateLine)}</span></div>` : ''}
+            ${availMeta ? `<div class="detail-meta-row"><span class="detail-meta-label">Availability</span><span>${esc(availMeta)}</span></div>` : ''}
+            ${isOwn && u.providerOnboardingComplete ? `<div class="detail-meta-row"><span class="detail-meta-label">Payments</span><span class="role-status-active">Connected</span></div>` : ''}
+          </div>
+          ${isOwn && !u.providerOnboardingComplete ? `<button class="cta-btn coach-stripe-cta" onclick="startProviderOnboarding(this)">Connect Stripe to receive payments →</button>` : ''}
+        </details>`;
+    })() : '';
+
+    // ── Request ref availability button (viewer, not own profile) ────────────────
+    const showRefRequest = hasReferee && _currentUser && targetUid !== _currentUser.uid;
+    const refRequestBtn  = showRefRequest
+      ? `<div class="profile-actions">
+           <button class="cta-btn" onclick="openRefRequestForm('${esc(targetUid)}', ${JSON.stringify({ name: u.name || '', refRate: u.refRate ?? null, refAvailability: u.refAvailability || [] })})">Request availability${u.refRate != null ? ` · £${u.refRate}/session` : ''}</button>
+         </div>`
+      : '';
+
     // ── Coach: incoming booking requests ────────────────────────────────────────
     const _slotLabel = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
     const _fmtLabel  = { 'in-person': 'In person', 'video': 'Video call' };
@@ -3221,6 +3300,42 @@ async function openProfileScreen(uid) {
     const playerBookingsSection = showPlayerBookings && playerBookingRows.length
       ? _sec('My 1-1 requests', playerBookingRows.join('')) : '';
 
+    // ── Ref: incoming requests (own profile as referee) ───────────────────────────
+    const refRequestRows = refRequestsSnap?.docs.map(d => {
+      const r   = d.data();
+      const rid = d.id;
+      return `<div class="booking-request-card" id="rr-card-${esc(rid)}">
+        <div><strong>${esc(r.requesterName || '—')}</strong></div>
+        <div class="booking-request-meta">${r.date ? esc(r.date) : ''}</div>
+        ${r.note ? `<div style="font-size:13px;color:var(--text-dim);margin-bottom:8px">${esc(r.note)}</div>` : ''}
+        <div class="booking-actions">
+          <button class="cta-btn btn-accept cta-btn--sm" onclick="acceptRefRequest('${esc(rid)}', document.getElementById('rr-card-${esc(rid)}'))">Accept</button>
+          <button class="cta-btn btn-decline cta-btn--sm" onclick="declineRefRequest('${esc(rid)}', document.getElementById('rr-card-${esc(rid)}'))">Decline</button>
+        </div>
+      </div>`;
+    }) || [];
+    const refRequestsSection = showRefRequests
+      ? _sec('Availability requests', refRequestRows.length
+          ? refRequestRows.join('')
+          : '<div class="empty-note">No pending requests.</div>')
+      : '';
+
+    // ── Player: outgoing ref requests ─────────────────────────────────────────────
+    const playerRefReqRows = playerRefRequestsSnap?.docs.map(d => {
+      const r = d.data();
+      const statusBadge = `<span class="booking-status-badge ${esc(r.status || 'pending')}">${r.status || 'pending'}</span>`;
+      return `<div class="booking-request-card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong>${esc(r.refUid ? (_userDisplayNames[r.refUid] || 'Referee') : '—')}</strong>
+          ${statusBadge}
+        </div>
+        ${r.date ? `<div class="booking-request-meta">${esc(r.date)}</div>` : ''}
+        ${r.note ? `<div style="font-size:13px;color:var(--text-dim)">${esc(r.note)}</div>` : ''}
+      </div>`;
+    }) || [];
+    const playerRefReqSection = showPlayerRefRequests && playerRefReqRows.length
+      ? _sec('My ref requests', playerRefReqRows.join('')) : '';
+
     body.innerHTML = `
       <div class="profile-screen-card">
         <div class="profile-hero">
@@ -3233,12 +3348,16 @@ async function openProfileScreen(uid) {
         ${playerSection}
         ${coachProfileSection}
         ${book1to1Btn}
+        ${refProfileSection}
+        ${refRequestBtn}
         ${rolesSection}
         ${adminSection}
         ${ownActions}
         ${coachBookingsSection}
         ${coachPaySection}
         ${playerBookingsSection}
+        ${refRequestsSection}
+        ${playerRefReqSection}
         ${seriesPassSection}
         ${sessionsSection}
       </div>`;
@@ -3370,6 +3489,120 @@ async function declineBooking(bookingId, containerEl) {
     if (containerEl) containerEl.remove();
   } catch (e) {
     showToast('Couldn\'t decline booking. Try again.', 'error');
+  }
+}
+
+// ─── Ref request overlay ──────────────────────────────────────────────────────
+function openRefRequestForm(refUid, refData) {
+  if (!_currentUser) { showToast('Sign in to request a referee.', 'error'); return; }
+  _bookingRef = { uid: refUid, ...refData };
+
+  const today = new Date().toISOString().slice(0, 10);
+  const dateEl = document.getElementById('rr-date');
+  dateEl.min   = today;
+  dateEl.value = '';
+  document.getElementById('rr-note').value = '';
+  const errEl = document.getElementById('rr-error');
+  errEl.style.display = 'none';
+  errEl.textContent   = '';
+  const btn = document.getElementById('rr-submit-btn');
+  btn.disabled    = false;
+  btn.textContent = 'Send request';
+  document.getElementById('ref-request-overlay').classList.add('open');
+}
+
+function closeRefRequestForm() {
+  document.getElementById('ref-request-overlay').classList.remove('open');
+  _bookingRef = null;
+}
+
+async function submitRefRequest() {
+  if (!_currentUser || !_bookingRef) return;
+  const dateVal = document.getElementById('rr-date').value;
+  const errEl   = document.getElementById('rr-error');
+  const btn     = document.getElementById('rr-submit-btn');
+  errEl.style.display = 'none';
+  errEl.textContent   = '';
+  if (!dateVal) {
+    errEl.textContent   = 'Please choose a preferred date.';
+    errEl.style.display = '';
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  if (dateVal < today) {
+    errEl.textContent   = 'Date must be today or in the future.';
+    errEl.style.display = '';
+    return;
+  }
+  const note = document.getElementById('rr-note').value.trim();
+  const requesterName = _currentUserDoc?.name || _currentUser.displayName || _currentUser.email || '';
+  const request = {
+    refUid:        _bookingRef.uid,
+    requesterUid:  _currentUser.uid,
+    requesterName,
+    date:          dateVal,
+    note,
+    status:        'pending',
+    createdAt:     firebase.firestore.FieldValue.serverTimestamp(),
+  };
+  btn.disabled    = true;
+  btn.textContent = 'Sending…';
+  try {
+    await getDb().collection('refRequests').add(request);
+    closeRefRequestForm();
+    showToast('Request sent! The referee will get back to you.');
+  } catch(e) {
+    console.error('submitRefRequest failed:', e);
+    errEl.textContent   = e.message || 'Couldn\'t send request. Please try again.';
+    errEl.style.display = '';
+    btn.disabled    = false;
+    btn.textContent = 'Send request';
+  }
+}
+
+async function acceptRefRequest(requestId, containerEl) {
+  try {
+    await getDb().collection('refRequests').doc(requestId).update({ status: 'accepted' });
+    showToast('Request accepted.');
+    if (containerEl) containerEl.remove();
+  } catch(e) {
+    showToast('Couldn\'t accept request. Try again.', 'error');
+  }
+}
+
+async function declineRefRequest(requestId, containerEl) {
+  try {
+    await getDb().collection('refRequests').doc(requestId).update({ status: 'declined' });
+    showToast('Request declined.');
+    if (containerEl) containerEl.remove();
+  } catch(e) {
+    showToast('Couldn\'t decline request. Try again.', 'error');
+  }
+}
+
+async function requestRefereeStatusFromView() {
+  if (!_currentUser) return;
+  const btn = document.getElementById('referee-request-view-btn');
+  if (btn) { btn.textContent = 'Request pending'; btn.disabled = true; }
+  try {
+    await _userRef(_currentUser.uid).update({
+      refereeRequest: _requestObj(),
+      updatedAt:      firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch(e) {
+    console.error('Referee request failed:', e);
+    if (btn) { btn.textContent = 'Request →'; btn.disabled = false; }
+    showToast('Request failed: ' + (e.message || 'unknown error'), 'error');
+  }
+}
+
+async function cancelRefereeRequest() {
+  if (!_currentUser) return;
+  try {
+    await _userRef(_currentUser.uid).update({ refereeRequest: _requestClosed('cancelled') });
+    openProfileScreen(_currentUser.uid);
+  } catch(e) {
+    showToast('Couldn\'t cancel. Try again.', 'error');
   }
 }
 
@@ -4766,6 +4999,29 @@ async function sendMessage() {
 }
 
 // ─── Availability grid ────────────────────────────────────────────────────────
+function _renderAvailGridTo(gridId, selectedSlots) {
+  const days    = ['mon','tue','wed','thu','fri','sat','sun'];
+  const dayLabels = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
+  const periods = [['am','Morning'],['pm','Afternoon'],['eve','Evening']];
+  const sel     = new Set(selectedSlots || []);
+  const grid    = document.getElementById(gridId);
+  if (!grid) return;
+
+  let html = `<div class="avail-day-label"></div>`;
+  for (const [, label] of periods) {
+    html += `<div class="avail-day-label" style="justify-content:center;font-weight:600">${label}</div>`;
+  }
+  for (const day of days) {
+    html += `<div class="avail-day-label">${dayLabels[day]}</div>`;
+    for (const [period] of periods) {
+      const slot = `${day}-${period}`;
+      const active = sel.has(slot) ? ' active' : '';
+      html += `<button type="button" class="avail-slot${active}" data-slot="${slot}" onclick="this.classList.toggle('active')">${periods.find(p=>p[0]===period)[1]}</button>`;
+    }
+  }
+  grid.innerHTML = html;
+}
+
 function _renderAvailGrid(selectedSlots) {
   const days    = ['mon','tue','wed','thu','fri','sat','sun'];
   const dayLabels = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
@@ -4843,6 +5099,28 @@ async function openEditProfile() {
         _renderAvailGrid(data.coachAvailability || []);
       }
     }
+    // Ref profile section — show only when user has referee role
+    const refSection = document.getElementById('ref-profile-section');
+    if (refSection) {
+      const isRef = (data.roles || []).includes('referee');
+      refSection.style.display = isRef ? '' : 'none';
+      if (isRef) {
+        document.getElementById('pf-ref-cert').value  = data.refCertification || '';
+        document.getElementById('pf-ref-bio').value   = data.refBio || '';
+        document.getElementById('pf-ref-rate').value  = data.refRate != null ? data.refRate : '';
+        const refLvlSet  = new Set(data.refLevels  || []);
+        const refTypeSet = new Set(data.refTypes   || []);
+        document.querySelectorAll('.pf-ref-lvl').forEach(cb  => { cb.checked = refLvlSet.has(cb.value);  });
+        document.querySelectorAll('.pf-ref-type').forEach(cb => { cb.checked = refTypeSet.has(cb.value); });
+        _renderAvailGridTo('pf-ref-avail-grid', data.refAvailability || []);
+      }
+    }
+    const refStripeField = document.getElementById('ref-stripe-field');
+    if (refStripeField) {
+      const isRef       = (data.roles || []).includes('referee');
+      const needsStripe = isRef && !data.providerOnboardingComplete;
+      refStripeField.style.display = needsStripe ? '' : 'none';
+    }
   } catch(e) {
     console.error('Load profile failed:', e);
   }
@@ -4881,7 +5159,21 @@ async function saveProfile() {
                           ? Number(document.getElementById('pf-coach-rate').value)
                           : null,
     coach1to1Enabled:   document.getElementById('pf-coach-1to1').checked,
-    coachAvailability:  Array.from(document.querySelectorAll('.avail-slot.active')).map(b => b.dataset.slot),
+    coachAvailability:  Array.from(document.querySelectorAll('#pf-avail-grid .avail-slot.active')).map(b => b.dataset.slot),
+  } : {};
+
+  // Collect ref fields if ref section is visible
+  const refSection = document.getElementById('ref-profile-section');
+  const refVisible = refSection && refSection.style.display !== 'none';
+  const refData = refVisible ? {
+    refCertification: document.getElementById('pf-ref-cert').value.trim() || null,
+    refBio:           document.getElementById('pf-ref-bio').value.trim() || null,
+    refLevels:        Array.from(document.querySelectorAll('.pf-ref-lvl:checked')).map(el => el.value),
+    refTypes:         Array.from(document.querySelectorAll('.pf-ref-type:checked')).map(el => el.value),
+    refAvailability:  Array.from(document.querySelectorAll('#pf-ref-avail-grid .avail-slot.active')).map(b => b.dataset.slot),
+    refRate:          document.getElementById('pf-ref-rate').value !== ''
+                        ? Number(document.getElementById('pf-ref-rate').value)
+                        : null,
   } : {};
 
   const bio = document.getElementById('edit-profile-bio').value.trim() || null;
@@ -4895,6 +5187,7 @@ async function saveProfile() {
       bio,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       ...coachData,
+      ...refData,
     });
     closeEditProfile();
     showToast('Profile updated.');
@@ -5905,6 +6198,175 @@ function _applyCoachFilters() {
     const rateBadge = u.coach1to1Enabled && u.coachRate != null
       ? `<span class="coach-rate-chip">£${u.coachRate}/hr</span>` : '';
     const badges = posBadges + styleBadges + rateBadge;
+    return `<div class="user-row" onclick="openProfileScreen('${esc(u.id)}')">
+      ${avatar}
+      <div class="user-info">
+        <div class="user-name">${esc(u.name || '—')}</div>
+        ${badges ? `<div class="coach-badges">${badges}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Refs directory ────────────────────────────────────────────────────────────
+function _renderRefOnboarding() {
+  const el = document.getElementById('ref-onboarding-banner');
+  if (!el || !_isReferee) { if (el) el.style.display = 'none'; return; }
+
+  const u = _currentUserDoc || {};
+  const items = [
+    { label: 'Add your bio',            done: !!(u.refBio && u.refBio.trim()) },
+    { label: 'Add your certification',  done: !!(u.refCertification && u.refCertification.trim()) },
+    { label: 'Set levels you referee',  done: !!(u.refLevels && u.refLevels.length) },
+    { label: 'Set session types',       done: !!(u.refTypes && u.refTypes.length) },
+    { label: 'Set your availability',   done: !!(u.refAvailability && u.refAvailability.length) },
+    { label: 'Set your rate',           done: !!(u.refRate && u.refRate > 0) },
+    { label: 'Connect Stripe',          done: !!_providerOnboardingComplete },
+  ];
+
+  const allDone = items.every(i => i.done);
+  if (allDone) { el.style.display = 'none'; return; }
+
+  const done = items.filter(i => i.done).length;
+  el.style.display = '';
+  el.innerHTML = `
+    <details class="coach-onboarding" open>
+      <summary class="coach-onboarding-header">
+        <strong>Complete your referee profile</strong>
+        <span class="coach-onboarding-progress">${done}/${items.length}</span>
+      </summary>
+      <div class="coach-onboarding-bar">
+        <div class="coach-onboarding-fill" style="width:${Math.round(done/items.length*100)}%"></div>
+      </div>
+      <ul class="coach-onboarding-list">
+        ${items.map(i => `
+          <li class="coach-onboarding-item ${i.done ? 'done' : ''}">
+            <span class="coach-onboarding-check">${i.done ? '✓' : '○'}</span>
+            ${esc(i.label)}
+          </li>
+        `).join('')}
+      </ul>
+      <button class="cta-btn cta-btn--sm" onclick="openEditProfile()">Edit referee profile →</button>
+    </details>
+  `;
+}
+
+function openRefsScreen() {
+  _setHash('refs');
+  showScreen('refs');
+  _setNav('primary', 'refs');
+  _setTitle('Referees');
+  _renderRefOnboarding();
+  renderRefs();
+}
+
+async function renderRefs() {
+  const list = document.getElementById('refs-list');
+  if (!list) return;
+  if (!_allRefs.length) {
+    list.innerHTML = '<div class="home-empty">Loading…</div>';
+    try {
+      const snap = await getDb().collection('publicProfiles')
+        .where('isReferee', '==', true)
+        .orderBy('name')
+        .get();
+      _allRefs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e) {
+      console.error('Load refs failed:', e);
+      list.innerHTML = '<div class="home-empty">Couldn\'t load referees.</div>';
+      return;
+    }
+  }
+  _applyRefFilters();
+}
+
+function filterRefs() {
+  _refSearch = (document.getElementById('refs-search')?.value || '').toLowerCase();
+  _applyRefFilters();
+}
+
+const _refFilterMeta = {
+  level:  { fbarId: 'rlevel',  set: () => _refLevelFilters,  defaultLabel: 'Level',  labels: { beginner: 'Beginner', improver: 'Intermediate', intermediate: 'Advanced', advanced: 'Competitive', competitive: 'Elite' } },
+  type:   { fbarId: 'rtype',   set: () => _refTypeFilters,   defaultLabel: 'Type',   labels: { game: 'Game', tournament: 'Tournament', league: 'League', training: 'Training', clinic: 'Clinic' } },
+  day:    { fbarId: 'rday',    set: () => _refDayFilters,    defaultLabel: 'Day',    labels: { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' } },
+  period: { fbarId: 'rperiod', set: () => _refPeriodFilters, defaultLabel: 'Time',   labels: { am: 'Morning', pm: 'Afternoon', eve: 'Evening' } },
+};
+
+function setRefFilter(type, val) {
+  const meta = _refFilterMeta[type];
+  if (!meta) return;
+  const filters = meta.set();
+  if (val === '') {
+    filters.clear();
+  } else {
+    if (filters.has(val)) filters.delete(val); else filters.add(val);
+  }
+  const label = filters.size === 1 ? meta.labels[[...filters][0]] : filters.size > 1 ? String(filters.size) : meta.defaultLabel;
+  _updateFbarBtn(meta.fbarId, filters.size > 0, label);
+  document.querySelectorAll(`#fpop-${meta.fbarId} .fpop-opt`).forEach(b => {
+    b.classList.toggle('active', b.dataset.val === '' ? filters.size === 0 : filters.has(b.dataset.val));
+  });
+  const rst = document.getElementById('ref-filter-reset');
+  if (rst) rst.style.display = _refFiltersActive() ? '' : 'none';
+  _applyRefFilters();
+}
+
+function _refFiltersActive() {
+  return _refLevelFilters.size || _refTypeFilters.size || _refDayFilters.size || _refPeriodFilters.size;
+}
+
+function resetRefFilters() {
+  _refLevelFilters.clear(); _refTypeFilters.clear();
+  _refDayFilters.clear(); _refPeriodFilters.clear();
+  Object.values(_refFilterMeta).forEach(m => {
+    _updateFbarBtn(m.fbarId, false, m.defaultLabel);
+    document.querySelectorAll(`#fpop-${m.fbarId} .fpop-opt`).forEach(b => b.classList.toggle('active', b.dataset.val === ''));
+  });
+  const rst = document.getElementById('ref-filter-reset');
+  if (rst) rst.style.display = 'none';
+  _applyRefFilters();
+}
+
+function _applyRefFilters() {
+  const list = document.getElementById('refs-list');
+  if (!list) return;
+  const q = _refSearch;
+  let refs = _allRefs.filter(u => {
+    if (q && !(u.name || '').toLowerCase().includes(q)) return false;
+    if (_refLevelFilters.size && !(u.refLevels  || []).some(l => _refLevelFilters.has(l))) return false;
+    if (_refTypeFilters.size  && !(u.refTypes   || []).some(t => _refTypeFilters.has(t)))  return false;
+    if (_refDayFilters.size || _refPeriodFilters.size) {
+      const slots = u.refAvailability || [];
+      const match = slots.some(slot => {
+        const [day, period] = slot.split('-');
+        return (!_refDayFilters.size    || _refDayFilters.has(day)) &&
+               (!_refPeriodFilters.size || _refPeriodFilters.has(period));
+      });
+      if (!match) return false;
+    }
+    return true;
+  });
+  if (!refs.length) {
+    list.innerHTML = '<div class="home-empty">No referees match your search.</div>';
+    return;
+  }
+  const _lvlLabelRef = { beginner: 'Beginner', improver: 'Intermediate', intermediate: 'Advanced', advanced: 'Competitive', competitive: 'Elite' };
+  list.innerHTML = refs.map(u => {
+    const initials = (u.name || '?')[0].toUpperCase();
+    const avatar   = u.photoURL
+      ? `<img class="user-avatar" src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer" />`
+      : `<div class="user-avatar user-avatar--initials">${esc(initials)}</div>`;
+    const certBadge = u.refCertification
+      ? `<span class="ref-cert-badge">${esc(u.refCertification)}</span>` : '';
+    const lvlChips = (u.refLevels || [])
+      .map(l => `<span class="session-badge level-${esc(l)}">${esc(_lvlLabelRef[l] || l)}</span>`)
+      .join('');
+    const typeChips = (u.refTypes || [])
+      .map(t => `<span class="coach-style-chip">${esc(t.charAt(0).toUpperCase() + t.slice(1))}</span>`)
+      .join('');
+    const rateBadge = u.refRate != null
+      ? `<span class="coach-rate-chip">£${u.refRate}/session</span>` : '';
+    const badges = certBadge + lvlChips + typeChips + rateBadge;
     return `<div class="user-row" onclick="openProfileScreen('${esc(u.id)}')">
       ${avatar}
       <div class="user-info">

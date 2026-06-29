@@ -918,6 +918,13 @@ body {
 .session-badge.admin-badge-lg    { background: rgba(244,114,182,.13);   border: 1px solid rgba(244,114,182,.4);  color: #f472b6; }
 .session-badge.provider-badge-lg { background: rgba(20,184,166,.15);    border: 1px solid rgba(45,212,191,.4);   color: #2dd4bf; }
 .session-badge.coach-badge-lg    { background: var(--green-bg);         border: 1px solid rgba(34,201,122,.35);  color: var(--green); }
+.session-badge.ref-badge-lg      { background: rgba(56,189,248,.13);    border: 1px solid rgba(56,189,248,.35);  color: #38bdf8; }
+.user-flag.ref-badge             { color: #38bdf8; background: rgba(56,189,248,.13); border-color: rgba(56,189,248,.35); }
+.ref-cert-badge {
+  font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 99px;
+  background: var(--amber-bg); border: 1px solid rgba(240,165,0,.35); color: var(--amber);
+  display: inline-block; margin-bottom: 8px;
+}
 
 .role-status-list { display: flex; flex-direction: column; }
 .role-status-row {

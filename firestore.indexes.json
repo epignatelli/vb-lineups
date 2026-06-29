@@ -33,6 +33,31 @@
         { "fieldPath": "isCoach", "order": "ASCENDING" },
         { "fieldPath": "name",    "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "publicProfiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isReferee", "order": "ASCENDING" },
+        { "fieldPath": "name",      "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "refRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "refUid",    "order": "ASCENDING" },
+        { "fieldPath": "status",    "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "refRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "requesterUid", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
