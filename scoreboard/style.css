@@ -11,8 +11,8 @@
   --color-b: #1D6FD8;   /* Bauhaus blue */
 }
 
-#panel-a { --team-color: var(--color-a); }
-#panel-b { --team-color: var(--color-b); }
+#panel-a { --team-color: var(--color-a); --team-bg: var(--color-a); --team-fg: #111111; }
+#panel-b { --team-color: var(--color-b); --team-bg: var(--color-b); --team-fg: #f5f5f0; }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -99,10 +99,11 @@ html, body {
   padding: 20px;
   cursor: pointer;
   position: relative;
-  transition: background .08s;
+  background: var(--team-bg);
+  transition: filter .08s;
 }
-.panel:active { background: rgba(255,255,255,.035); }
-.panel.match-done { cursor: default; opacity: .6; }
+.panel:active { filter: brightness(.92); }
+.panel.match-done { cursor: default; opacity: .5; }
 
 .divider {
   width: 1px;
@@ -120,7 +121,7 @@ html, body {
 .serve-dot {
   width: 11px; height: 11px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--team-fg);
   opacity: 0;
   transition: opacity .15s;
   cursor: pointer;
@@ -133,8 +134,8 @@ html, body {
   font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;
-  color: var(--team-color);
-  opacity: .7;
+  color: var(--team-fg);
+  opacity: .6;
   cursor: text;
   white-space: nowrap;
 }
@@ -145,9 +146,9 @@ html, body {
   font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;
-  color: var(--team-color);
-  background: var(--surface);
-  border: 1px solid var(--team-color);
+  color: var(--team-fg);
+  background: color-mix(in srgb, var(--team-fg) 12%, var(--team-bg));
+  border: 1px solid color-mix(in srgb, var(--team-fg) 50%, transparent);
   border-radius: 4px;
   padding: 2px 6px;
   outline: none;
@@ -168,9 +169,12 @@ html, body {
   transition: background .15s, border-color .15s;
   flex-shrink: 0;
 }
+.set-dot {
+  border-color: color-mix(in srgb, var(--team-fg) 35%, transparent);
+}
 .set-dot.filled {
-  background: var(--team-color);
-  border-color: var(--team-color);
+  background: var(--team-fg);
+  border-color: var(--team-fg);
 }
 
 /* ── Score ── */
@@ -179,7 +183,7 @@ html, body {
   font-weight: 900;
   line-height: 1;
   letter-spacing: -.02em;
-  color: var(--team-color);
+  color: var(--team-fg);
   pointer-events: none;
 }
 
@@ -198,16 +202,16 @@ html, body {
   font-size: 20px;
   font-weight: 700;
   line-height: 1;
-  color: var(--team-color);
+  color: var(--team-fg);
   background: none;
-  border: 1px solid color-mix(in srgb, var(--team-color) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--team-fg) 30%, transparent);
   border-radius: 8px;
   padding: 5px 14px;
   cursor: pointer;
-  opacity: .6;
+  opacity: .5;
 }
 #panel-a .minus-btn { right: auto; left: 14px; }
-.minus-btn:active { opacity: 1; background: color-mix(in srgb, var(--team-color) 10%, transparent); }
+.minus-btn:active { opacity: 1; background: color-mix(in srgb, var(--team-fg) 12%, transparent); }
 
 /* ── Footer ── */
 #footbar {
