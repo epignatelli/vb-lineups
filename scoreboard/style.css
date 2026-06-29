@@ -198,9 +198,6 @@ html, body {
 
 /* ── Minus button ── */
 .minus-btn {
-  position: absolute;
-  bottom: 14px;
-  right: 14px;
   font-family: inherit;
   font-size: 20px;
   font-weight: 700;
@@ -209,11 +206,10 @@ html, body {
   background: none;
   border: 1px solid color-mix(in srgb, var(--team-fg) 30%, transparent);
   border-radius: 8px;
-  padding: 5px 14px;
+  padding: 5px 20px;
   cursor: pointer;
   opacity: .5;
 }
-#panel-a .minus-btn { right: auto; left: 14px; }
 .minus-btn:active { opacity: 1; background: color-mix(in srgb, var(--team-fg) 12%, transparent); }
 
 /* ── Footer ── */
