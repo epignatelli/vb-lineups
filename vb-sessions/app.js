@@ -2612,7 +2612,8 @@ function _applyUserFilter() {
     if (_userFilter === 'provider')         return (u.roles||[]).includes('provider');
     if (_userFilter === 'admin')            return (u.roles||[]).includes('admin');
     if (_userFilter === 'pending')          return (_isOpenRequest(u.coachRequest) && !(u.roles||[]).includes('coach'))
-                                                || (_isOpenRequest(u.providerRequest) && !(u.roles||[]).includes('provider'));
+                                                || (_isOpenRequest(u.providerRequest) && !(u.roles||[]).includes('provider'))
+                                                || (_isOpenRequest(u.refereeRequest) && !(u.roles||[]).includes('referee'));
     if (_userFilter === 'incomplete') return !u.gender || !(u.positions||[]).length;
     return true;
   });
@@ -2839,6 +2840,36 @@ async function rejectProvider(btn, uid) {
   } catch(e) { restore(); showToast('Couldn\'t reject. Try again.', 'error'); }
 }
 
+async function approveReferee(btn, uid) {
+  if (!_isAdmin) return;
+  const label = _userDisplayNames[uid] || uid;
+  if (!confirm(`Approve ${label} as a referee?`)) return;
+  const restore = _setBtnLoading(btn);
+  try {
+    const doc  = await _userRef(uid).get();
+    const data = doc.data() || {};
+    if (!_isOpenRequest(data.refereeRequest)) { restore(); showToast('Request is no longer open.', 'error'); return; }
+    await callFn('updateUserRole', { uid, role: 'referee', action: 'add' });
+    await _userRef(uid).update({ refereeRequest: { ...data.refereeRequest, ..._requestClosed('approved') } });
+    showToast('Referee approved.');
+    _refreshAfterRoleAction(uid);
+  } catch(e) { restore(); showToast('Couldn\'t approve. Try again.', 'error'); }
+}
+
+async function rejectReferee(btn, uid) {
+  if (!_isAdmin) return;
+  if (!confirm('Reject this referee request?')) return;
+  const restore = _setBtnLoading(btn);
+  try {
+    const doc  = await _userRef(uid).get();
+    const req  = doc.data()?.refereeRequest;
+    if (!_isOpenRequest(req)) { restore(); showToast('Request is no longer open.', 'error'); return; }
+    await _userRef(uid).update({ refereeRequest: { ...req, ..._requestClosed('declined') } });
+    showToast('Referee request rejected.');
+    _refreshAfterRoleAction(uid);
+  } catch(e) { restore(); showToast('Couldn\'t reject. Try again.', 'error'); }
+}
+
 async function banUser(uid) {
   if (!_isAdmin) return;
   const name = _userDisplayNames[uid] || 'this user';
@@ -3003,6 +3034,17 @@ async function openProfileScreen(uid) {
               </div>`
             : `<div class="role-action-btns">${hasProvider ? _activeTag : ''}
                  ${_grantRevoke('provider', hasProvider, 'provider')}
+               </div>`}
+          </div>
+          <div class="role-status-row">
+            <span class="role-status-name">Referee</span>
+            ${hasPendingRef ? `
+              <div class="role-action-btns">
+                <button class="role-action-approve" data-uid="${esc(targetUid)}" onclick="approveReferee(this,this.dataset.uid)">Approve</button>
+                <button class="role-action-reject"  data-uid="${esc(targetUid)}" onclick="rejectReferee(this,this.dataset.uid)">Reject</button>
+              </div>`
+            : `<div class="role-action-btns">${hasReferee ? _activeTag : ''}
+                 ${_grantRevoke('referee', hasReferee, 'referee')}
                </div>`}
           </div>
           <div class="role-status-row">
