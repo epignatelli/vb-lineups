@@ -258,6 +258,33 @@ function render() {
   document.getElementById('panel-b').classList.toggle('match-done', done);
 }
 
+// ── PWA install ───────────────────────────────────────────────────────────────
+
+let _installPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _installPrompt = e;
+  document.getElementById('install-banner').classList.remove('hidden');
+});
+
+window.addEventListener('appinstalled', () => {
+  _installPrompt = null;
+  document.getElementById('install-banner').classList.add('hidden');
+});
+
+async function installPWA() {
+  if (!_installPrompt) return;
+  _installPrompt.prompt();
+  await _installPrompt.userChoice;
+  _installPrompt = null;
+  document.getElementById('install-banner').classList.add('hidden');
+}
+
+function dismissInstall() {
+  document.getElementById('install-banner').classList.add('hidden');
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 _load();
