@@ -51,8 +51,6 @@
     <button class="nav-tab"            data-tab="series"   onclick="openSeriesScreen()">Passes</button>
     <button class="nav-tab"            data-tab="coaches"  onclick="openCoachesScreen()">Coaches</button>
     <button class="nav-tab"            data-tab="refs"     onclick="openRefsScreen()">Refs</button>
-    <button class="nav-tab admin-tab"  data-tab="finances" onclick="openFinancesScreen()">Finances</button>
-    <button class="nav-tab admin-tab"  data-tab="insights" onclick="openInsightsScreen()">Insights</button>
     <button class="nav-tab admin-tab"  data-tab="admin"    onclick="openAdminScreen()">Admin</button>
   </div>
 </div>
@@ -237,6 +235,20 @@
 ══════════════════════════════════════════════════ -->
 <div class="screen" id="screen-admin">
   <div class="home-content">
+    <div onclick="openFinancesScreen()" class="admin-nav-row">
+      <div>
+        <div>Finances</div>
+        <div class="admin-nav-desc">Revenue &amp; payouts</div>
+      </div>
+      <span class="admin-nav-arrow">→</span>
+    </div>
+    <div onclick="openInsightsScreen()" class="admin-nav-row">
+      <div>
+        <div>Insights</div>
+        <div class="admin-nav-desc">Attendance &amp; trends</div>
+      </div>
+      <span class="admin-nav-arrow">→</span>
+    </div>
     <div onclick="openVenuesScreen()" class="admin-nav-row">
       <div>
         <div>Venues</div>

@@ -5360,7 +5360,7 @@ function openFinancesScreen() {
   if (!_isAdmin) return;
   _setHash('finances');
   showScreen('finances');
-  _setNav('primary', 'finances');
+  _setNav('primary', 'admin');
   _setTitle('Sessions');
   renderFinances();
 }
@@ -5588,7 +5588,7 @@ function openInsightsScreen() {
   if (!_isAdmin) return;
   _setHash('insights');
   showScreen('insights');
-  _setNav('primary', 'insights');
+  _setNav('primary', 'admin');
   _setTitle('Sessions');
   renderInsights();
 }
