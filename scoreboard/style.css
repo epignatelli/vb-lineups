@@ -272,61 +272,6 @@ html, body {
 }
 .foot-btn:active { background: var(--surface); }
 
-/* ── Install banner ── */
-#install-banner {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  z-index: 50;
-  animation: slide-up .25s ease;
-}
-#install-banner.hidden { display: none; }
-
-@keyframes slide-up {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
-}
-
-.install-text {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  color: var(--muted);
-}
-
-.install-btn {
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--bg);
-  background: var(--accent);
-  border: none;
-  border-radius: 6px;
-  padding: 7px 14px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.install-btn:active { opacity: .85; }
-
-.install-dismiss {
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 16px;
-  cursor: pointer;
-  padding: 4px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
 /* ── Overlays ── */
 .overlay {
   position: fixed;

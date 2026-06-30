@@ -53,7 +53,17 @@
     <div id="set-history"></div>
     <div id="target-label"></div>
     <button id="colour-btn" class="foot-btn" onclick="toggleColour()">Mono</button>
+    <button id="install-btn" class="foot-btn" onclick="installPWA()">Install</button>
   </footer>
+
+  <!-- iOS install tip -->
+  <div id="ios-tip" class="overlay hidden" onclick="document.getElementById('ios-tip').classList.add('hidden')">
+    <div class="overlay-card">
+      <div class="overlay-eyebrow">Add to home screen</div>
+      <div class="overlay-headline" style="font-size:20px;letter-spacing:.03em">Tap <strong>Share</strong> then<br>"Add to Home Screen"</div>
+      <button class="overlay-btn" onclick="document.getElementById('ios-tip').classList.add('hidden')">Got it</button>
+    </div>
+  </div>
 
   <!-- Set won overlay -->
   <div id="set-overlay" class="overlay hidden" onclick="nextSet()">
@@ -73,13 +83,6 @@
       <div class="overlay-score" id="match-score-disp"></div>
       <button class="overlay-btn" onclick="confirmNewMatch()">New match</button>
     </div>
-  </div>
-
-  <!-- Install banner -->
-  <div id="install-banner" class="hidden">
-    <span class="install-text">Add to home screen for the best experience</span>
-    <button class="install-btn" onclick="installPWA()">Install</button>
-    <button class="install-dismiss" onclick="dismissInstall()">✕</button>
   </div>
 
   <script src="app.js"></script>

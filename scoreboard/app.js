@@ -293,28 +293,36 @@ function render() {
 // ── PWA install ───────────────────────────────────────────────────────────────
 
 let _installPrompt = null;
+const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const _isStandalone = window.navigator.standalone === true
+  || window.matchMedia('(display-mode: standalone)').matches;
 
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   _installPrompt = e;
-  document.getElementById('install-banner').classList.remove('hidden');
 });
 
 window.addEventListener('appinstalled', () => {
   _installPrompt = null;
-  document.getElementById('install-banner').classList.add('hidden');
+  document.getElementById('install-btn').style.display = 'none';
 });
 
 async function installPWA() {
-  if (!_installPrompt) return;
-  _installPrompt.prompt();
-  await _installPrompt.userChoice;
-  _installPrompt = null;
-  document.getElementById('install-banner').classList.add('hidden');
+  if (_installPrompt) {
+    _installPrompt.prompt();
+    await _installPrompt.userChoice;
+    _installPrompt = null;
+    document.getElementById('install-btn').style.display = 'none';
+  } else if (_isIOS && !_isStandalone) {
+    document.getElementById('ios-tip').classList.remove('hidden');
+  }
 }
 
-function dismissInstall() {
-  document.getElementById('install-banner').classList.add('hidden');
+// Hide install button if already running as installed app
+if (_isStandalone) {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('install-btn').style.display = 'none';
+  });
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
