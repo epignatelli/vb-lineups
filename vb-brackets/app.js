@@ -371,7 +371,7 @@ async function _startGroups() {
 }
 
 // ── Phase: Groups ─────────────────────────────────────────────────────────────
-function _buildGroupsHtml() {
+function _buildGroupsHtml(canEdit) {
   const t = _tournament;
   const gm = _matches.filter(m => m.phase === 'group');
 
@@ -379,10 +379,10 @@ function _buildGroupsHtml() {
   for (const m of gm) { if (!byG[m.group]) byG[m.group] = []; byG[m.group].push(m); }
 
   const teamsByG = {};
-  for (const tm of t.teams) { if (!teamsByG[tm.group]) teamsByG[tm.group] = []; teamsByG[tm.group].push(tm); }
+  for (const tm of (t.teams || [])) { if (!teamsByG[tm.group]) teamsByG[tm.group] = []; teamsByG[tm.group].push(tm); }
 
   let html = `<div class="groups-container">`;
-  for (let g = 0; g < t.groupCount; g++) {
+  for (let g = 0; g < (t.groupCount || 0); g++) {
     const stands = _computeStandings(teamsByG[g] || [], byG[g] || []);
     const advW = t.advanceWinners, advL = t.advanceLosers;
 
@@ -401,7 +401,7 @@ function _buildGroupsHtml() {
       </table>
       <div class="matches-sh">Matches</div>
       <div class="matches-list">
-        ${(byG[g] || []).sort((a,b) => a.slot - b.slot).map(m => _matchCard(m, false)).join('')}
+        ${(byG[g] || []).sort((a,b) => a.slot - b.slot).map(m => _matchCard(m, canEdit)).join('')}
       </div>
     </div>`;
   }
@@ -415,7 +415,7 @@ function _renderGroups() {
   const gm = _matches.filter(m => m.phase === 'group');
   const allDone = gm.length > 0 && gm.every(m => m.winner);
 
-  let html = _buildGroupsHtml();
+  let html = _buildGroupsHtml(canEdit);
 
   html += `<div class="bottom-actions">`;
   if (canEdit && allDone) {
@@ -551,7 +551,11 @@ function _renderKnockout() {
   </nav>`;
 
   if (_knockoutTab === 'groups') {
-    html += _buildGroupsHtml();
+    try {
+      html += _buildGroupsHtml(false);
+    } catch (err) {
+      html += `<div class="error">Could not load group results: ${_esc(err.message)}</div>`;
+    }
   } else {
     html += `<div class="bracket-container">
       <div class="sh">Winners bracket</div>
