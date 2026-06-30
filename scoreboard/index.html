@@ -14,15 +14,9 @@
 <body>
 
   <header id="topbar">
-    <div class="top-left">
-      <a href="../tools/" class="top-btn">←</a>
-    </div>
-    <div id="set-label">Set 1</div>
-    <div class="top-right">
-      <button id="setpoints-btn" class="top-btn" onclick="cycleSetPoints()">25pts</button>
-      <button id="bestof-btn" class="top-btn" onclick="toggleBestOf()">Bo5</button>
-      <button class="top-btn" onclick="confirmNewMatch()">New</button>
-    </div>
+    <div id="set-history"></div>
+    <div id="set-label">Set 1 of 5</div>
+    <div id="target-label">First to 25</div>
   </header>
 
   <main id="court">
@@ -50,8 +44,10 @@
   </main>
 
   <footer id="footbar">
-    <div id="set-history"></div>
-    <div id="target-label"></div>
+    <a href="../tools/" class="foot-btn">←</a>
+    <button id="setpoints-btn" class="foot-btn" onclick="cycleSetPoints()">25pts</button>
+    <button id="bestof-btn" class="foot-btn" onclick="toggleBestOf()">Bo5</button>
+    <button class="foot-btn" onclick="confirmNewMatch()">New</button>
     <button id="colour-btn" class="foot-btn" onclick="toggleColour()">Mono</button>
     <button id="install-btn" class="foot-btn" onclick="installPWA()">Install</button>
   </footer>
