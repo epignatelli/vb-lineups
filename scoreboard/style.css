@@ -6,7 +6,7 @@
   --muted:   #555;
   --accent:  #FFD600;
   --bar-h:   48px;
-  --foot-h:  40px;
+  --foot-h:  56px;
   --color-a: #FFD600;   /* Bauhaus yellow */
   --color-b: #1D6FD8;   /* Bauhaus blue */
 }
@@ -49,6 +49,30 @@ html, body {
   letter-spacing: .1em;
   text-transform: uppercase;
   color: var(--text);
+  white-space: nowrap;
+}
+
+#set-history {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+
+.set-hist-item { white-space: nowrap; }
+.set-hist-item.won-a { color: var(--text); }
+.set-hist-item.won-b { color: var(--text); }
+.set-hist-label { color: var(--muted); }
+
+#target-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
   white-space: nowrap;
 }
 
@@ -141,13 +165,10 @@ html, body {
 .set-dot {
   width: 8px; height: 8px;
   border-radius: 50%;
-  border: 1.5px solid var(--muted);
+  border: 1.5px solid color-mix(in srgb, var(--team-fg) 35%, transparent);
   background: transparent;
   transition: background .15s, border-color .15s;
   flex-shrink: 0;
-}
-.set-dot {
-  border-color: color-mix(in srgb, var(--team-fg) 35%, transparent);
 }
 .set-dot.filled {
   background: var(--team-fg);
@@ -164,7 +185,6 @@ html, body {
   pointer-events: none;
 }
 
-/* leading zero: dim the tens digit if score < 10 */
 .score.single::before {
   content: '0';
   opacity: .15;
@@ -183,65 +203,120 @@ html, body {
   padding: 5px 20px;
   cursor: pointer;
   opacity: .5;
+  -webkit-appearance: none;
+  appearance: none;
 }
 .minus-btn:active { opacity: 1; background: color-mix(in srgb, var(--team-fg) 12%, transparent); }
 
-/* ── Top bar — set history & target ── */
-#set-history {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  color: var(--muted);
-}
-
-.set-hist-item { white-space: nowrap; }
-.set-hist-item.won-a { color: var(--text); }
-.set-hist-item.won-b { color: var(--text); }
-.set-hist-label { color: var(--muted); }
-
-#target-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-/* ── Footer — buttons only ── */
+/* ── Footer — 3 buttons ── */
 #footbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 10px;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: stretch;
+  padding: 8px 12px;
+  gap: 8px;
   height: var(--foot-h);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .foot-btn {
+  -webkit-appearance: none;
+  appearance: none;
   background: none;
-  border: 1px solid var(--muted);
-  color: var(--text);
+  border: 1px solid var(--border);
+  color: var(--muted);
   font-family: inherit;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: .07em;
   text-transform: uppercase;
-  padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  flex-shrink: 0;
   text-decoration: none;
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   line-height: 1;
+  padding: 0;
 }
-.foot-btn:active { background: var(--surface); }
+.foot-btn:active { background: var(--surface); color: var(--text); }
+
+.foot-back { font-size: 18px; letter-spacing: 0; }
+.foot-settings { font-size: 20px; letter-spacing: .05em; border-color: var(--muted); color: var(--text); }
+.foot-new { border-color: var(--muted); color: var(--text); }
+
+/* ── Settings overlay ── */
+.settings-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: min(340px, 90vw);
+}
+
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.setting-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.setting-opts {
+  display: flex;
+  gap: 6px;
+}
+
+.setting-opt {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 10px 0;
+  cursor: pointer;
+}
+.setting-opt.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+.setting-opt:active:not(.active) { background: rgba(255,255,255,.06); color: var(--text); }
+
+.setting-install {
+  -webkit-appearance: none;
+  appearance: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  width: 100%;
+}
+.setting-install:active { background: rgba(255,255,255,.06); color: var(--text); }
 
 /* ── Overlays ── */
 .overlay {
@@ -295,6 +370,8 @@ html, body {
 
 .overlay-btn {
   margin-top: 8px;
+  -webkit-appearance: none;
+  appearance: none;
   font-family: inherit;
   font-size: 15px;
   font-weight: 700;
@@ -306,5 +383,6 @@ html, body {
   border-radius: 8px;
   padding: 12px 28px;
   cursor: pointer;
+  width: 100%;
 }
 .overlay-btn:active { opacity: .85; }

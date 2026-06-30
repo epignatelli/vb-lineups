@@ -110,24 +110,18 @@ function nextSet() {
   if (_matchOver()) _showMatchWon();
 }
 
-function toggleBestOf() {
-  _state.bestOf = _state.bestOf === 5 ? 3 : 5;
-  _save();
-  render();
+function setBestOf(n) { _state.bestOf = n; _save(); render(); }
+function setColour(on) { _state.coloured = on; _save(); render(); }
+function setSetPoints(n) { _state.setPoints = n; _save(); render(); }
+
+function openSettings() {
+  document.getElementById('settings-overlay').classList.remove('hidden');
 }
 
-function toggleColour() {
-  _state.coloured = !_state.coloured;
-  _save();
-  render();
-}
-
-function cycleSetPoints() {
-  const seq = [25, 21, 18, 15];
-  const i = seq.indexOf(_state.setPoints);
-  _state.setPoints = seq[(i + 1) % seq.length];
-  _save();
-  render();
+function closeSettings(e) {
+  if (!e || e.target === document.getElementById('settings-overlay')) {
+    document.getElementById('settings-overlay').classList.add('hidden');
+  }
 }
 
 function confirmNewMatch() {
@@ -257,32 +251,28 @@ function render() {
   document.getElementById('serve-a').classList.toggle('active', serving === 'a');
   document.getElementById('serve-b').classList.toggle('active', serving === 'b');
 
-  // Topbar set label
+  // Topbar
   document.getElementById('set-label').textContent = `Set ${Math.min(setNum, bestOf)} of ${bestOf}`;
+  document.getElementById('target-label').textContent = `first to ${target}`;
 
-  // Bo toggle button label
-  document.getElementById('bestof-btn').textContent = `Bo${bestOf}`;
-
-  // Set points button label
-  document.getElementById('setpoints-btn').textContent = `${_state.setPoints}pts`;
+  const hist = document.getElementById('set-history');
+  hist.innerHTML = sets.length
+    ? sets.map(s => `<span class="set-hist-item ${s.a > s.b ? 'won-a' : 'won-b'}">${s.a}–${s.b}</span>`)
+        .join('<span class="set-hist-label"> · </span>')
+    : '';
 
   // Colour mode
   document.getElementById('court').classList.toggle('mono', !_state.coloured);
-  document.getElementById('colour-btn').textContent = _state.coloured ? 'Mono' : 'Colour';
 
-  // Footer — set history
-  const hist = document.getElementById('set-history');
-  if (sets.length) {
-    hist.innerHTML = sets.map(s => {
-      const cls = s.a > s.b ? 'won-a' : 'won-b';
-      return `<span class="set-hist-item ${cls}">${s.a}–${s.b}</span>`;
-    }).join('<span class="set-hist-label"> · </span>');
-  } else {
-    hist.innerHTML = '';
-  }
-
-  // Footer — target info
-  document.getElementById('target-label').textContent = `first to ${target}`;
+  // Settings active states
+  document.getElementById('opt-bo3').classList.toggle('active', bestOf === 3);
+  document.getElementById('opt-bo5').classList.toggle('active', bestOf === 5);
+  document.getElementById('opt-25').classList.toggle('active', _state.setPoints === 25);
+  document.getElementById('opt-21').classList.toggle('active', _state.setPoints === 21);
+  document.getElementById('opt-18').classList.toggle('active', _state.setPoints === 18);
+  document.getElementById('opt-15').classList.toggle('active', _state.setPoints === 15);
+  document.getElementById('opt-colour').classList.toggle('active', _state.coloured);
+  document.getElementById('opt-mono').classList.toggle('active', !_state.coloured);
 
   // Dim panels when match is over
   const done = _matchOver();

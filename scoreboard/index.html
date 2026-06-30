@@ -22,7 +22,7 @@
   <main id="court">
     <div class="panel" id="panel-a" onclick="score('a')">
       <div class="team-header">
-        <span class="serve-dot" id="serve-a" onclick="setServe(event,'a')" title="Serving"></span>
+        <span class="serve-dot" id="serve-a" onclick="setServe(event,'a')"></span>
         <span class="team-name" id="name-a" onclick="editName(event,'a')">Team A</span>
         <div class="sets-dots" id="sets-a"></div>
       </div>
@@ -34,7 +34,7 @@
 
     <div class="panel" id="panel-b" onclick="score('b')">
       <div class="team-header">
-        <span class="serve-dot" id="serve-b" onclick="setServe(event,'b')" title="Serving"></span>
+        <span class="serve-dot" id="serve-b" onclick="setServe(event,'b')"></span>
         <span class="team-name" id="name-b" onclick="editName(event,'b')">Team B</span>
         <div class="sets-dots" id="sets-b"></div>
       </div>
@@ -44,13 +44,47 @@
   </main>
 
   <footer id="footbar">
-    <a href="../tools/" class="foot-btn">←</a>
-    <button id="setpoints-btn" class="foot-btn" onclick="cycleSetPoints()">25pts</button>
-    <button id="bestof-btn" class="foot-btn" onclick="toggleBestOf()">Bo5</button>
-    <button class="foot-btn" onclick="confirmNewMatch()">New</button>
-    <button id="colour-btn" class="foot-btn" onclick="toggleColour()">Mono</button>
-    <button id="install-btn" class="foot-btn" onclick="installPWA()">Install</button>
+    <a href="../tools/" class="foot-btn foot-back">←</a>
+    <button class="foot-btn foot-settings" onclick="openSettings()">···</button>
+    <button class="foot-btn foot-new" onclick="confirmNewMatch()">New</button>
   </footer>
+
+  <!-- Settings overlay -->
+  <div id="settings-overlay" class="overlay hidden" onclick="closeSettings(event)">
+    <div class="settings-card" onclick="event.stopPropagation()">
+      <div class="overlay-eyebrow">Settings</div>
+
+      <div class="setting-group">
+        <div class="setting-group-label">Format</div>
+        <div class="setting-opts">
+          <button class="setting-opt" id="opt-bo3" onclick="setBestOf(3)">Bo3</button>
+          <button class="setting-opt" id="opt-bo5" onclick="setBestOf(5)">Bo5</button>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-group-label">Set points</div>
+        <div class="setting-opts">
+          <button class="setting-opt" id="opt-25" onclick="setSetPoints(25)">25</button>
+          <button class="setting-opt" id="opt-21" onclick="setSetPoints(21)">21</button>
+          <button class="setting-opt" id="opt-18" onclick="setSetPoints(18)">18</button>
+          <button class="setting-opt" id="opt-15" onclick="setSetPoints(15)">15</button>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-group-label">Theme</div>
+        <div class="setting-opts">
+          <button class="setting-opt" id="opt-colour" onclick="setColour(true)">Colour</button>
+          <button class="setting-opt" id="opt-mono" onclick="setColour(false)">Mono</button>
+        </div>
+      </div>
+
+      <button id="install-btn" class="setting-install" onclick="installPWA()">Add to home screen</button>
+
+      <button class="overlay-btn" onclick="closeSettings()">Done</button>
+    </div>
+  </div>
 
   <!-- Install tip -->
   <div id="install-tip" class="overlay hidden" onclick="document.getElementById('install-tip').classList.add('hidden')">
