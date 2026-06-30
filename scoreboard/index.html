@@ -56,12 +56,12 @@
     <button id="install-btn" class="foot-btn" onclick="installPWA()">Install</button>
   </footer>
 
-  <!-- iOS install tip -->
-  <div id="ios-tip" class="overlay hidden" onclick="document.getElementById('ios-tip').classList.add('hidden')">
+  <!-- Install tip -->
+  <div id="install-tip" class="overlay hidden" onclick="document.getElementById('install-tip').classList.add('hidden')">
     <div class="overlay-card">
       <div class="overlay-eyebrow">Add to home screen</div>
-      <div class="overlay-headline" style="font-size:20px;letter-spacing:.03em">Tap <strong>Share</strong> then<br>"Add to Home Screen"</div>
-      <button class="overlay-btn" onclick="document.getElementById('ios-tip').classList.add('hidden')">Got it</button>
+      <div id="install-tip-body" class="overlay-headline" style="font-size:18px;line-height:1.4;letter-spacing:.01em"></div>
+      <button class="overlay-btn" onclick="document.getElementById('install-tip').classList.add('hidden')">Got it</button>
     </div>
   </div>
 

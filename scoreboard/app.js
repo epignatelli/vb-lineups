@@ -293,7 +293,7 @@ function render() {
 // ── PWA install ───────────────────────────────────────────────────────────────
 
 let _installPrompt = null;
-const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 const _isStandalone = window.navigator.standalone === true
   || window.matchMedia('(display-mode: standalone)').matches;
 
@@ -308,21 +308,28 @@ window.addEventListener('appinstalled', () => {
 });
 
 async function installPWA() {
+  if (_isStandalone) return;
+
   if (_installPrompt) {
     _installPrompt.prompt();
-    await _installPrompt.userChoice;
-    _installPrompt = null;
-    document.getElementById('install-btn').style.display = 'none';
-  } else if (_isIOS && !_isStandalone) {
-    document.getElementById('ios-tip').classList.remove('hidden');
+    const { outcome } = await _installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      _installPrompt = null;
+      document.getElementById('install-btn').style.display = 'none';
+    }
+    return;
   }
+
+  // Native prompt not available — show manual instructions
+  const tip = _isIOS
+    ? 'Tap the <strong>Share</strong> button (⬆) at the bottom of Safari, then choose <strong>"Add to Home Screen"</strong>'
+    : 'Open this page in Chrome or Safari, then use the browser menu to <strong>"Add to Home Screen"</strong>';
+  document.getElementById('install-tip-body').innerHTML = tip;
+  document.getElementById('install-tip').classList.remove('hidden');
 }
 
-// Hide install button if already running as installed app
 if (_isStandalone) {
-  document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('install-btn').style.display = 'none';
-  });
+  document.getElementById('install-btn').style.display = 'none';
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
