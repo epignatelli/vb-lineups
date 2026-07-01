@@ -426,7 +426,7 @@ function _buildGroupsHtml(canEdit) {
           </table>
         </div>
         <div class="group-col-matches">
-          <div class="matches-sh">Matches</div>
+          ${_matchesHeader(t)}
           <div class="matches-list">
             ${(byG[g] || []).sort((a,b) => a.slot - b.slot).map(m => _matchCard(m, canEdit)).join('')}
           </div>
@@ -460,39 +460,53 @@ function _renderGroups() {
   _sc().innerHTML = html;
 }
 
+function _matchesHeader(t) {
+  const spm = t.setsPerMatch || 1;
+  if (spm === 1) return `<div class="matches-sh">Matches</div>`;
+  const setLabels = Array.from({ length: spm }, (_, i) => `<span class="mc-set-label">S${i + 1}</span>`).join('');
+  return `<div class="matches-sh mc-sh-multi" style="--spm:${spm}"><span>Match</span>${setLabels}</div>`;
+}
+
 function _matchCard(m, canEdit) {
   const wA = m.winner === 'A', wB = m.winner === 'B';
   const clickable = canEdit;
   const spm = _tournament.setsPerMatch || 1;
   const sets = m.sets || [];
-  let scoreHtml;
-  if (m.winner) {
-    scoreHtml = `<span class="mc-s${wA ? ' mc-s-win' : ''}">${m.scoreA}</span><span class="mc-score-sep">—</span><span class="mc-s${wB ? ' mc-s-win' : ''}">${m.scoreB}</span>`;
-  } else if (spm > 1 && sets.length > 0) {
-    // Multi-set match in progress — show running sets count
-    const rA = sets.filter(s => s.a > s.b).length;
-    const rB = sets.filter(s => s.b > s.a).length;
-    scoreHtml = `<span class="mc-s mc-s-prog">${rA}</span><span class="mc-score-sep">–</span><span class="mc-s mc-s-prog">${rB}</span>`;
-  } else if (m.scoreA !== null && m.scoreB !== null) {
-    scoreHtml = `<span class="mc-s${wA ? ' mc-s-win' : ''}">${m.scoreA}</span><span class="mc-score-sep">—</span><span class="mc-s${wB ? ' mc-s-win' : ''}">${m.scoreB}</span>`;
-  } else {
-    scoreHtml = `<span class="mc-score-vs${clickable ? ' mc-score-vs-edit' : ''}">vs</span>`;
+
+  const refHtml = m.refTeamName ? `<div class="mc-ref">ref · ${_esc(m.refTeamName)}</div>` : '';
+  const mainHtml = `<div class="mc-main">
+    <div class="mc-teams">
+      <span class="mc-name mc-name-a">${_esc(m.nameA)}</span>
+      <span class="mc-sep">vs</span>
+      <span class="mc-name mc-name-b">${_esc(m.nameB)}</span>
+    </div>${refHtml}</div>`;
+
+  const winCls = wA ? ' mc-winner-a' : wB ? ' mc-winner-b' : '';
+  const clickAttr = clickable ? ` onclick="_openScore('${_esc(m.id)}')"` : '';
+
+  if (spm === 1) {
+    const scoreHtml = (m.scoreA !== null && m.scoreB !== null)
+      ? `<span class="mc-s${wA ? ' mc-s-win' : ''}">${m.scoreA}</span><span class="mc-score-sep">—</span><span class="mc-s${wB ? ' mc-s-win' : ''}">${m.scoreB}</span>`
+      : `<span class="mc-score-vs${clickable ? ' mc-score-vs-edit' : ''}">vs</span>`;
+    return `<div class="match-card${winCls}"${clickAttr}>${mainHtml}<span class="mc-score">${scoreHtml}</span></div>`;
   }
-  const refHtml = m.refTeamName
-    ? `<div class="mc-ref">ref · ${_esc(m.refTeamName)}</div>` : '';
-  return `
-    <div class="match-card${wA ? ' mc-winner-a' : wB ? ' mc-winner-b' : ''}"
-      ${clickable ? `onclick="_openScore('${_esc(m.id)}')"` : ''}>
-      <div class="mc-main">
-        <div class="mc-teams">
-          <span class="mc-name mc-name-a">${_esc(m.nameA)}</span>
-          <span class="mc-sep">vs</span>
-          <span class="mc-name mc-name-b">${_esc(m.nameB)}</span>
-        </div>
-        ${refHtml}
-      </div>
-      <span class="mc-score">${scoreHtml}</span>
+
+  // Multi-set: no sets played yet → "vs" spanning all set columns
+  if (sets.length === 0) {
+    return `<div class="match-card mc-multi${winCls}" style="--spm:${spm}"${clickAttr}>
+      ${mainHtml}<span class="mc-sets-vs"><span class="mc-score-vs${clickable ? ' mc-score-vs-edit' : ''}">vs</span></span>
     </div>`;
+  }
+
+  // One cell per possible set; fill played sets, leave rest empty
+  const setCols = Array.from({ length: spm }, (_, i) => {
+    const s = sets[i];
+    if (!s) return `<span class="mc-set mc-set-empty"></span>`;
+    const aW = s.a > s.b;
+    return `<span class="mc-set"><span class="mcs${aW ? ' mcs-win' : ''}">${s.a}</span><span class="mcs-sep">–</span><span class="mcs${!aW ? ' mcs-win' : ''}">${s.b}</span></span>`;
+  }).join('');
+
+  return `<div class="match-card mc-multi${winCls}" style="--spm:${spm}"${clickAttr}>${mainHtml}${setCols}</div>`;
 }
 
 // ── Score entry modal ─────────────────────────────────────────────────────────

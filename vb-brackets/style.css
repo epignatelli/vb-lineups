@@ -297,6 +297,30 @@ body {
 .mc-winner-a .mc-name-a { color: var(--text); font-weight: 800; }
 .mc-winner-b .mc-name-b { color: var(--text); font-weight: 800; }
 
+/* Multi-set grid layout — replaces flex for spm > 1 */
+.mc-multi {
+  display: grid;
+  grid-template-columns: 1fr repeat(var(--spm, 1), 54px);
+  padding-left: 0; padding-right: 0; gap: 0;
+}
+.mc-multi .mc-main { padding: 8px 8px 8px 16px; }
+/* Unplayed: "vs" spanning all set columns */
+.mc-sets-vs {
+  grid-column: 2 / -1;
+  display: flex; align-items: center; justify-content: center;
+  border-left: 1px solid var(--rule); align-self: stretch;
+}
+/* Individual set score cell */
+.mc-set {
+  display: flex; align-items: center; justify-content: center; gap: 1px;
+  border-left: 1px solid var(--rule); align-self: stretch;
+  font-size: 13px;
+}
+.mc-set-empty { border-left: 1px solid var(--rule); align-self: stretch; }
+.mcs { color: var(--mid); font-weight: 700; }
+.mcs-win { color: var(--y); font-weight: 900; }
+.mcs-sep { font-size: 10px; color: rgba(255,255,255,.22); }
+
 /* Matches sub-header */
 .matches-sh {
   display: flex; align-items: center;
@@ -308,6 +332,17 @@ body {
 }
 /* In the two-column layout, top border comes from the group-block sh */
 .group-col-matches .matches-sh { border-top: 1px solid var(--rule); }
+/* Multi-set column header — same grid template as .mc-multi cards */
+.mc-sh-multi {
+  display: grid;
+  grid-template-columns: 1fr repeat(var(--spm, 1), 54px);
+  padding: 0;
+}
+.mc-sh-multi > :first-child { padding: 7px 8px 7px 16px; }
+.mc-set-label {
+  display: flex; align-items: center; justify-content: center;
+  border-left: 1px solid var(--rule); padding: 7px 0;
+}
 
 /* ── Score overlay ───────────────────────────────────────────────────────────── */
 .score-overlay {
