@@ -392,6 +392,55 @@ body {
 
 
 /* ── Knockout bracket ────────────────────────────────────────────────────────── */
+/* ── Tournament summary (done screen) ─────────────────────────────────────── */
+.summary-champion {
+  padding: 24px 16px 20px;
+  border-bottom: 1px solid var(--rule);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.summary-champ-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--y);
+}
+.summary-champ-name {
+  font-size: clamp(28px, 8vw, 48px); font-weight: 900;
+  letter-spacing: -.01em; text-transform: uppercase; line-height: 1;
+}
+
+.summary-podium {
+  display: flex; border-bottom: 1px solid var(--rule);
+}
+.podium-place {
+  flex: 1; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 3px;
+  border-right: 1px solid var(--rule);
+}
+.podium-place:last-child { border-right: none; }
+.podium-rank {
+  font-size: 10px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--mid);
+}
+.p1 .podium-rank { color: var(--y); }
+.p3 .podium-rank { color: var(--b); }
+.podium-team {
+  font-size: 16px; font-weight: 800;
+  letter-spacing: .02em; text-transform: uppercase;
+}
+.p1 .podium-team { color: var(--y); }
+.p3 .podium-team { color: var(--b); }
+
+.summary-groups {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  border-bottom: 1px solid var(--rule);
+}
+.summary-group { border-right: 1px solid var(--rule); }
+.summary-group:last-child { border-right: none; }
+.summary-group-label {
+  padding: 7px 16px;
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--mid); border-bottom: 1px solid var(--rule);
+}
+
 .champion-banner {
   margin: 16px; padding: 14px 16px;
   border: 1px solid var(--y); border-left: 4px solid var(--y);

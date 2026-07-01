@@ -886,17 +886,59 @@ function _renderBracket(matches, canEdit) {
 
 // ── Phase: Done ───────────────────────────────────────────────────────────────
 function _renderDone() {
+  const t = _tournament;
   const wm = _matches.filter(m => m.bracket === 'winners').sort((a,b) => a.round - b.round || a.slot - b.slot);
-  const finalM = wm.find(m => !m.winnerTo);
-  const champ = finalM?.winner ? (finalM.winner === 'A' ? finalM.nameA : finalM.nameB) : '—';
+  const lm = _matches.filter(m => m.bracket === 'losers').sort((a,b) => a.round - b.round || a.slot - b.slot);
+  const gm = _matches.filter(m => m.phase === 'group');
+
+  const wFinal = wm.find(m => !m.winnerTo);
+  const champ  = wFinal?.winner ? (wFinal.winner === 'A' ? wFinal.nameA : wFinal.nameB) : '—';
+  const runner = wFinal?.winner ? (wFinal.winner === 'A' ? wFinal.nameB : wFinal.nameA) : null;
+  const lFinal = lm.find(m => !m.winnerTo);
+  const third  = lFinal?.winner ? (lFinal.winner === 'A' ? lFinal.nameA : lFinal.nameB) : null;
+
+  // Group standings
+  const teamsByG = {};
+  for (const tm of t.teams || []) { if (!teamsByG[tm.group]) teamsByG[tm.group] = []; teamsByG[tm.group].push(tm); }
+  let groupsHtml = '';
+  for (let g = 0; g < (t.groupCount || 0); g++) {
+    const stands = _computeStandings(teamsByG[g] || [], gm.filter(m => m.group === g));
+    groupsHtml += `<div class="summary-group">
+      <div class="summary-group-label">Group ${_groupLabel(g)}</div>
+      <table class="standings-table">
+        <thead><tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>+/−</th></tr></thead>
+        <tbody>${stands.map((s, i) => `
+          <tr><td>${i+1}</td><td>${_esc(s.name)}</td><td>${s.W}</td><td>${s.L}</td>
+          <td>${s.sW-s.sL >= 0 ? '+' : ''}${s.sW-s.sL}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  }
+
+  const podiumPlaces = [
+    { rank: '1st', name: champ, cls: 'p1' },
+    ...(runner ? [{ rank: '2nd', name: runner, cls: 'p2' }] : []),
+    ...(third  ? [{ rank: '3rd', name: third,  cls: 'p3' }] : []),
+  ];
 
   _sc().innerHTML = `
     <div class="done-screen">
-      <div class="champion-banner">Champion: ${_esc(champ)}</div>
-      <div class="bracket-container">
-        <div class="bracket-phase-label">Winners bracket</div>
-        ${_renderBracket(wm, false)}
+      <div class="summary-champion">
+        <span class="summary-champ-label">Champion</span>
+        <span class="summary-champ-name">${_esc(champ)}</span>
       </div>
+      <div class="summary-podium">
+        ${podiumPlaces.map(p => `
+          <div class="podium-place ${p.cls}">
+            <span class="podium-rank">${p.rank}</span>
+            <span class="podium-team">${_esc(p.name)}</span>
+          </div>`).join('')}
+      </div>
+      <div class="sh">Group stage</div>
+      <div class="summary-groups">${groupsHtml}</div>
+      <div class="sh">Winners bracket</div>
+      ${_renderBracket(wm, false)}
+      ${lm.length ? `<div class="sh">Losers bracket</div>${_renderBracket(lm, false)}` : ''}
       <div class="bottom-actions">
         <button class="btn-ghost" onclick="_copyLink()">Copy share link</button>
       </div>
