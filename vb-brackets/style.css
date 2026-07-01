@@ -389,16 +389,7 @@ body {
 }
 .sset-input { font-size: 22px; width: 100%; }
 
-/* Read-only previous-set rows shown above the current-set input */
-.score-prev-row {
-  display: grid; grid-template-columns: 44px 1fr 1fr; gap: 8px; align-items: center;
-  padding: 4px 0; border-bottom: 1px solid var(--rule);
-}
-.sset-prev {
-  font-size: 20px; font-weight: 900; color: var(--mid); text-align: center;
-}
-.sset-prev-win { color: var(--y); }
-.score-set-current { padding-top: 4px; }
+
 
 /* ── Knockout bracket ────────────────────────────────────────────────────────── */
 .champion-banner {

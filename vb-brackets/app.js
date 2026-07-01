@@ -542,51 +542,30 @@ function _openScore(matchId) {
     document.getElementById('se-a').focus();
   } else {
     const prevSets = m.sets || [];
-    const setsToWin = Math.ceil(spm / 2);
-    let wA = 0, wB = 0;
-    for (const s of prevSets) { if (s.a > s.b) wA++; else wB++; }
-    const matchDone = Math.max(wA, wB) >= setsToWin;
-    const nextIdx   = prevSets.length;
-
-    const prevHtml = prevSets.map((s, i) => {
-      const aWins = s.a > s.b;
-      return `<div class="score-prev-row">
+    const setRows = Array.from({ length: spm }, (_, i) => `
+      <div class="score-set-row">
         <span class="sset-label">Set ${i + 1}</span>
-        <span class="sset-prev${aWins ? ' sset-prev-win' : ''}">${s.a}</span>
-        <span class="sset-prev${!aWins ? ' sset-prev-win' : ''}">${s.b}</span>
-      </div>`;
-    }).join('');
-
-    const inputHtml = !matchDone ? `
-      <div class="score-set-row score-set-current">
-        <span class="sset-label">Set ${nextIdx + 1}</span>
-        <input class="score-input sset-input" id="se-a" type="number" min="0" max="99" inputmode="numeric"/>
-        <input class="score-input sset-input" id="se-b" type="number" min="0" max="99" inputmode="numeric"/>
-      </div>` : '';
-
-    const actionHtml = !matchDone
-      ? `<button class="btn-primary" onclick="_submitScore('${_esc(matchId)}')">Save set ${nextIdx + 1}</button>`
-      : `<button class="btn-ghost" onclick="_undoLastSet('${_esc(matchId)}')">↩ Undo last set</button>`;
-
-    const title = matchDone ? 'Match complete' : prevSets.length === 0 ? 'Set 1' : `Set ${nextIdx + 1} · ${wA}–${wB}`;
-
+        <input class="score-input sset-input" id="se-${i}-a" type="number" min="0" max="99" inputmode="numeric"
+          value="${prevSets[i] ? prevSets[i].a : ''}"/>
+        <input class="score-input sset-input" id="se-${i}-b" type="number" min="0" max="99" inputmode="numeric"
+          value="${prevSets[i] ? prevSets[i].b : ''}"/>
+      </div>`).join('');
     el.innerHTML = `
       <div class="score-modal score-modal-sets">
-        <div class="score-modal-title">${title}</div>
+        <div class="score-modal-title">Enter scores</div>
         <div class="score-sets-header">
           <span></span>
           <span class="sset-team">${_esc(m.nameA)}</span>
           <span class="sset-team">${_esc(m.nameB)}</span>
         </div>
-        ${prevHtml}
-        ${inputHtml}
+        ${setRows}
         <div class="score-modal-actions">
           <button class="btn-ghost" onclick="document.getElementById('score-overlay').remove()">Cancel</button>
-          ${actionHtml}
+          <button class="btn-primary" onclick="_submitScore('${_esc(matchId)}')">Save</button>
         </div>
       </div>`;
     document.body.appendChild(el);
-    if (!matchDone) document.getElementById('se-a').focus();
+    document.getElementById('se-0-a').focus();
   }
 }
 
@@ -606,15 +585,21 @@ async function _submitScore(matchId) {
     winner = sA > sB ? 'A' : 'B';
     update = { scoreA, scoreB, winner };
   } else {
-    const a = parseInt(document.getElementById('se-a')?.value);
-    const b = parseInt(document.getElementById('se-b')?.value);
-    if (isNaN(a) || isNaN(b) || a < 0 || b < 0) { _toast('Enter valid scores'); return; }
-    if (a === b) { _toast('Scores cannot be equal'); return; }
-
     const setsToWin = Math.ceil(spm / 2);
-    const sets = [...(m.sets || []), { a, b }];
+    const sets = [];
     let wA = 0, wB = 0;
-    for (const s of sets) { if (s.a > s.b) wA++; else wB++; }
+    for (let i = 0; i < spm; i++) {
+      const aVal = document.getElementById(`se-${i}-a`)?.value ?? '';
+      const bVal = document.getElementById(`se-${i}-b`)?.value ?? '';
+      if (aVal === '' && bVal === '') break; // first empty row = end of entered sets
+      const a = parseInt(aVal), b = parseInt(bVal);
+      if (isNaN(a) || isNaN(b) || a < 0 || b < 0) { _toast(`Set ${i + 1}: enter valid scores`); return; }
+      if (a === b) { _toast(`Set ${i + 1}: scores cannot be equal`); return; }
+      sets.push({ a, b });
+      if (a > b) wA++; else wB++;
+      if (Math.max(wA, wB) >= setsToWin) break; // winner decided — ignore further rows
+    }
+    if (sets.length === 0) { _toast('Enter at least one set score'); return; }
     winner = wA >= setsToWin ? 'A' : wB >= setsToWin ? 'B' : null;
     scoreA = wA; scoreB = wB;
     update = { scoreA, scoreB, sets, winner };
@@ -636,15 +621,6 @@ async function _submitScore(matchId) {
   } catch (err) { _toast(err.message); }
 }
 
-async function _undoLastSet(matchId) {
-  const m = _matches.find(x => x.id === matchId);
-  if (!m || !m.sets || m.sets.length === 0) return;
-  document.getElementById('score-overlay')?.remove();
-  const sets = m.sets.slice(0, -1);
-  let wA = 0, wB = 0;
-  for (const s of sets) { if (s.a > s.b) wA++; else wB++; }
-  await _mRef(_tid, matchId).update({ sets, scoreA: wA, scoreB: wB, winner: null }).catch(e => _toast(e.message));
-}
 
 // ── Action: Advance to knockout ────────────────────────────────────────────────
 async function _advanceToKnockout() {
