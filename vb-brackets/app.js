@@ -366,11 +366,23 @@ async function _startGroups() {
   for (let g = 0; g < t.groupCount; g++) {
     const teams = byG[g] || [];
     const pairs = _rrPairs(teams, t.roundsPerGroup === 2);
+
+    // Assign referee team (fewest refs so far, must not be playing)
+    const refCount = {};
+    for (const tm of teams) refCount[tm.id] = 0;
+
     pairs.forEach(([a, b], i) => {
+      const eligible = teams.filter(tm => tm.id !== a.id && tm.id !== b.id)
+                            .sort((x, y) => refCount[x.id] - refCount[y.id]);
+      const ref = eligible[0] || null;
+      if (ref) refCount[ref.id]++;
+
       batch.set(_mCol(_tid).doc(`g${g}m${i}`), {
         phase: 'group', group: g, slot: i,
         teamAId: a.id, nameA: a.name,
         teamBId: b.id, nameB: b.name,
+        refTeamId:   ref ? ref.id   : null,
+        refTeamName: ref ? ref.name : null,
         scoreA: null, scoreB: null, winner: null,
         winnerTo: null, winnerToSlot: null,
       });
@@ -440,6 +452,9 @@ function _renderGroups() {
   } else if (!allDone) {
     html += `<div class="info-pill">${gm.filter(m => m.winner).length} / ${gm.length} matches played</div>`;
   }
+  if (canEdit) {
+    html += `<button class="btn-ghost" onclick="_resetToSetup()">↩ Reset to setup</button>`;
+  }
   html += `<button class="btn-ghost" onclick="_copyLink()">Copy share link</button></div>`;
 
   _sc().innerHTML = html;
@@ -448,17 +463,25 @@ function _renderGroups() {
 function _matchCard(m, canEdit) {
   const wA = m.winner === 'A', wB = m.winner === 'B';
   const clickable = canEdit;
-  const scoreHtml = m.scoreA !== null && m.scoreB !== null
+  const hasScore = m.scoreA !== null && m.scoreB !== null;
+  const scoreHtml = hasScore
     ? `<span class="mc-s${wA ? ' mc-s-win' : ''}">${m.scoreA}</span><span class="mc-score-sep">—</span><span class="mc-s${wB ? ' mc-s-win' : ''}">${m.scoreB}</span>`
-    : `<span class="mc-score-vs">vs</span>`;
+    : clickable
+      ? `<span class="mc-add-score">＋</span>`
+      : `<span class="mc-score-vs">vs</span>`;
+  const refHtml = m.refTeamName
+    ? `<div class="mc-ref">ref · ${_esc(m.refTeamName)}</div>` : '';
   return `
     <div class="match-card${wA ? ' mc-winner-a' : wB ? ' mc-winner-b' : ''}"
       ${clickable ? `onclick="_openScore('${_esc(m.id)}')"` : ''}>
-      <span class="mc-teams">
-        <span class="mc-name mc-name-a">${_esc(m.nameA)}</span>
-        <span class="mc-sep">vs</span>
-        <span class="mc-name mc-name-b">${_esc(m.nameB)}</span>
-      </span>
+      <div class="mc-main">
+        <div class="mc-teams">
+          <span class="mc-name mc-name-a">${_esc(m.nameA)}</span>
+          <span class="mc-sep">vs</span>
+          <span class="mc-name mc-name-b">${_esc(m.nameB)}</span>
+        </div>
+        ${refHtml}
+      </div>
       <span class="mc-score">${scoreHtml}</span>
     </div>`;
 }
@@ -626,7 +649,7 @@ function _renderKnockout() {
 
   if (_knockoutTab === 'groups') {
     try {
-      html += _buildGroupsHtml(false);
+      html += _buildGroupsHtml(canEdit);
     } catch (err) {
       html += `<div class="error">Could not load group results: ${_esc(err.message)}</div>`;
     }
@@ -646,6 +669,7 @@ function _renderKnockout() {
 
   html += `<div class="bottom-actions">`;
   if (canEdit && champ) html += `<button class="btn-primary" onclick="_finishTournament()">Close tournament</button>`;
+  if (canEdit) html += `<button class="btn-ghost" onclick="_resetToGroups()">↩ Reset to group stage</button>`;
   html += `<button class="btn-ghost" onclick="_copyLink()">Copy share link</button></div>`;
 
   _sc().innerHTML = html;
@@ -727,15 +751,63 @@ function _copyLink() {
 // ── Algorithms ─────────────────────────────────────────────────────────────────
 
 // All pairs for round-robin; doubles = each pair appears twice (reversed)
+// ── Phase resets (creator only) ───────────────────────────────────────────────
+async function _resetToSetup() {
+  if (!confirm('Delete all group matches and scores, and go back to setup?')) return;
+  const gm = _matches.filter(m => m.phase === 'group');
+  const batch = _db().batch();
+  for (const m of gm) batch.delete(_mRef(_tid, m.id));
+  batch.update(_tRef(_tid), { status: 'setup' });
+  await batch.commit().catch(e => _toast(e.message));
+}
+
+async function _resetToGroups() {
+  if (!confirm('Delete the knockout bracket and go back to the group stage?')) return;
+  const km = _matches.filter(m => m.phase === 'knockout');
+  const batch = _db().batch();
+  for (const m of km) batch.delete(_mRef(_tid, m.id));
+  batch.update(_tRef(_tid), { status: 'groups' });
+  await batch.commit().catch(e => _toast(e.message));
+}
+
+// Circle-method round-robin — generates matches round by round so each team
+// plays at most once per round.  Then _spreadMatches re-orders to minimise
+// back-to-back appearances on a single court.
 function _rrPairs(teams, doubles) {
+  const n = teams.length;
+  if (n < 2) return [];
+  // Pad to even with null "bye" so the circle algorithm always works
+  const t = n % 2 === 0 ? [...teams] : [...teams, null];
+  const m  = t.length;
+  const fixed = t[0];
+  const rot   = t.slice(1); // m-1 rotating slots
+
   const pairs = [];
-  for (let i = 0; i < teams.length; i++) {
-    for (let j = i + 1; j < teams.length; j++) {
-      pairs.push([teams[i], teams[j]]);
-      if (doubles) pairs.push([teams[j], teams[i]]);
+  for (let r = 0; r < m - 1; r++) {
+    if (fixed && rot[r]) pairs.push([fixed, rot[r]]);
+    for (let i = 1; i < m / 2; i++) {
+      const a = rot[(r + i)          % (m - 1)];
+      const b = rot[(r - i + m - 1)  % (m - 1)];
+      if (a && b) pairs.push([a, b]);
     }
   }
-  return pairs;
+
+  const out = doubles ? [...pairs, ...pairs.map(([a, b]) => [b, a])] : pairs;
+  return _spreadMatches(out);
+}
+
+// Greedy reorder: always pick the next match whose teams didn't just play
+function _spreadMatches(pairs) {
+  const rem = [...pairs];
+  const sched = [];
+  let prevIds = new Set();
+  while (rem.length) {
+    const idx = rem.findIndex(([a, b]) => !prevIds.has(a.id) && !prevIds.has(b.id));
+    const [m] = rem.splice(idx === -1 ? 0 : idx, 1);
+    sched.push(m);
+    prevIds = new Set([m[0].id, m[1].id]);
+  }
+  return sched;
 }
 
 // Standings sorted by W → set diff → sets won

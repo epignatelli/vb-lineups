@@ -251,8 +251,8 @@ body {
 .standings-table th:nth-child(4) { width: 44px; }
 .standings-table th:nth-child(5) { width: 64px; }
 .standings-table td {
-  padding: 10px 16px; font-size: 15px;
-  border-bottom: 1px solid var(--rule);
+  padding: 0 16px; height: 48px; font-size: 15px;
+  border-bottom: 1px solid var(--rule); vertical-align: middle;
 }
 .standings-table td:not(:first-child) { text-align: center; font-weight: 700; }
 .standings-table tr:last-child td { border-bottom: none; }
@@ -267,26 +267,34 @@ body {
 .matches-list { }
 .match-card {
   display: flex; align-items: center;
-  padding: 10px 16px; gap: 12px;
+  min-height: 48px; padding: 8px 16px; gap: 12px;
   border-bottom: 1px solid var(--rule);
 }
 .matches-list .match-card:first-child { border-top: none; }
 .match-card[onclick] { cursor: pointer; }
 .match-card[onclick]:active { background: rgba(255,255,255,.03); }
 
-.mc-teams { flex: 0 1 auto; display: flex; align-items: baseline; gap: 5px; min-width: 0; overflow: hidden; }
+/* Two-line inner layout: teams row + ref row */
+.mc-main { flex: 0 1 auto; display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow: hidden; }
+.mc-teams { display: flex; align-items: baseline; gap: 5px; min-width: 0; overflow: hidden; }
 .mc-name { font-size: 15px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mc-sep { color: var(--mid); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; flex-shrink: 0; }
+.mc-sep { color: rgba(255,255,255,.38); font-size: 12px; flex-shrink: 0; }
+.mc-ref { font-size: 11px; font-weight: 600; color: var(--mid); letter-spacing: .02em; }
 
 /* Score column — fixed width so scores align across all rows */
 .mc-score {
-  flex-shrink: 0; min-width: 68px;
+  flex-shrink: 0; min-width: 56px;
   display: flex; align-items: center; justify-content: flex-end; gap: 4px;
 }
 .mc-s { font-size: 15px; font-weight: 900; color: var(--mid); }
 .mc-s-win { color: var(--y); }
 .mc-score-sep { font-size: 12px; color: rgba(255,255,255,.38); }
 .mc-score-vs { font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--mid); }
+.mc-add-score {
+  font-size: 16px; font-weight: 700; color: var(--y);
+  border: 1px solid var(--y); width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
 
 /* Winner: bold-white name, yellow score (distinct from standings yellow = advancement) */
 .mc-winner-a .mc-name-a { color: var(--text); font-weight: 800; }
