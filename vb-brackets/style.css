@@ -222,7 +222,7 @@ body {
 }
 
 /* ── Groups phase ────────────────────────────────────────────────────────────── */
-.groups-container { display: flex; flex-direction: column; max-width: 540px; }
+.groups-container { display: flex; flex-direction: column; max-width: 540px; margin: 0 auto; }
 .group-block { padding-bottom: 12px; }
 .group-block + .group-block { border-top: 1px solid var(--rule); padding-top: 8px; }
 
