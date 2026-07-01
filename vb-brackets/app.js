@@ -286,6 +286,44 @@ async function _submitCreate(e) {
   }
 }
 
+async function _submitEdit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('cf-submit');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const groups = parseInt(document.getElementById('cf-groups').value);
+    const rounds = parseInt(document.getElementById('cf-rounds').value);
+    const sets   = parseInt(document.getElementById('cf-sets').value);
+    const advW   = parseInt(document.getElementById('cf-advw').value);
+    const advL   = parseInt(document.getElementById('cf-advl').value);
+    const wbf    = document.getElementById('cf-wbf').value;
+    const names  = _parseTeamNames();
+    if (names.length < 2) { _toast('Enter at least 2 teams'); btn.disabled = false; btn.textContent = 'Start group stage →'; return; }
+    const newName = document.getElementById('cf-name').value.trim();
+    const teams   = names.map((name, i) => ({ id: `t${i}`, name, group: i % groups }));
+
+    // Persist updated settings
+    await _tRef(_tid).update({
+      name: newName, groupCount: groups,
+      teamsPerGroup: Math.ceil(names.length / groups),
+      roundsPerGroup: rounds, setsPerMatch: sets,
+      advanceWinners: advW, advanceLosers: advL, winnersBracket: wbf, teams,
+    });
+
+    // Update local state so _startGroups reads the new values
+    Object.assign(_tournament, { name: newName, groupCount: groups,
+      teamsPerGroup: Math.ceil(names.length / groups),
+      roundsPerGroup: rounds, setsPerMatch: sets,
+      advanceWinners: advW, advanceLosers: advL, winnersBracket: wbf, teams,
+    });
+
+    await _startGroups();
+  } catch (err) {
+    _toast(err.message);
+    btn.disabled = false; btn.textContent = 'Start group stage →';
+  }
+}
+
 // ── Tournament detail ──────────────────────────────────────────────────────────
 function _showTournament(id) {
   _unsub();
@@ -322,37 +360,115 @@ function _renderSetup() {
   const t = _tournament;
   const canEdit = _user && _user.uid === t.createdBy;
 
-  const byG = {};
-  for (const tm of t.teams || []) { if (!byG[tm.group]) byG[tm.group] = []; byG[tm.group].push(tm); }
-
-  let teamsHtml = '';
-  for (let g = 0; g < t.groupCount; g++) {
-    teamsHtml += `
-      <div class="sh">Group ${_groupLabel(g)}</div>
-      <div class="group-section" style="padding:10px 16px 12px">
-        ${(byG[g]||[]).map(tm => `<span class="team-chip">${_esc(tm.name)}</span>`).join('')}
-      </div>`;
-  }
-
-  _sc().innerHTML = `
-    <div class="phase-setup">
+  if (!canEdit) {
+    // Read-only summary for non-creators
+    const byG = {};
+    for (const tm of t.teams || []) { if (!byG[tm.group]) byG[tm.group] = []; byG[tm.group].push(tm); }
+    let teamsHtml = '';
+    for (let g = 0; g < t.groupCount; g++) {
+      teamsHtml += `<div class="sh">Group ${_groupLabel(g)}</div>
+        <div class="group-section" style="padding:10px 16px 12px">
+          ${(byG[g]||[]).map(tm => `<span class="team-chip">${_esc(tm.name)}</span>`).join('')}
+        </div>`;
+    }
+    _sc().innerHTML = `<div class="phase-setup">
       <div class="sh">Format</div>
-        <div class="setup-row"><span>Groups</span><span>${t.groupCount}</span></div>
-        <div class="setup-row"><span>Teams per group</span><span>${t.teamsPerGroup}</span></div>
-        <div class="setup-row"><span>Format</span><span>${t.roundsPerGroup === 2 ? 'Double round-robin' : 'Single round-robin'}</span></div>
-        <div class="setup-row"><span>Sets per match</span><span>${t.setsPerMatch === 3 ? 'Best of 3' : t.setsPerMatch === 5 ? 'Best of 5' : '1 set'}</span></div>
-        <div class="setup-row"><span>Advance → winners</span><span>${t.advanceWinners} per group</span></div>
-        <div class="setup-row"><span>Advance → losers</span><span>${t.advanceLosers > 0 ? `${t.advanceLosers} per group` : 'None'}</span></div>
-        <div class="setup-row"><span>Winners bracket</span><span>${t.winnersBracket === 'double' ? 'Double elimination' : 'Single elimination'}</span></div>
+      <div class="setup-row"><span>Groups</span><span>${t.groupCount}</span></div>
+      <div class="setup-row"><span>Teams per group</span><span>${t.teamsPerGroup}</span></div>
+      <div class="setup-row"><span>Format</span><span>${t.roundsPerGroup === 2 ? 'Double round-robin' : 'Single round-robin'}</span></div>
+      <div class="setup-row"><span>Sets per match</span><span>${t.setsPerMatch === 3 ? 'Best of 3' : t.setsPerMatch === 5 ? 'Best of 5' : '1 set'}</span></div>
+      <div class="setup-row"><span>Advance → winners</span><span>${t.advanceWinners} per group</span></div>
+      <div class="setup-row"><span>Advance → losers</span><span>${t.advanceLosers > 0 ? `${t.advanceLosers} per group` : 'None'}</span></div>
+      <div class="setup-row"><span>Winners bracket</span><span>${t.winnersBracket === 'double' ? 'Double elimination' : 'Single elimination'}</span></div>
       <div class="sh">Teams</div>
       <div class="teams-grid">${teamsHtml}</div>
       <div class="bottom-actions">
-        ${canEdit
-          ? `<button class="btn-primary" onclick="_startGroups()">Start group stage →</button>`
-          : `<div class="info-pill">Waiting for organizer to start the tournament.</div>`}
+        <div class="info-pill">Waiting for organizer to start the tournament.</div>
         <button class="btn-ghost" onclick="_copyLink()">Copy share link</button>
       </div>
     </div>`;
+    return;
+  }
+
+  // Creator: full editable form pre-populated with current settings
+  const S = (val, opt) => val == opt ? ' selected' : '';
+  const teamsText = [...(t.teams || [])]
+    .sort((a, b) => parseInt(a.id.slice(1)) - parseInt(b.id.slice(1)))
+    .map(tm => tm.name).join('\n');
+
+  _sc().innerHTML = `
+    <form id="cf" onsubmit="_submitEdit(event)" class="create-form">
+      <div class="field">
+        <label class="field-label">Tournament name</label>
+        <input class="field-input" id="cf-name" type="text" value="${_esc(t.name)}" required/>
+      </div>
+      <div class="field">
+        <label class="field-label">Number of groups</label>
+        <select class="field-input field-select" id="cf-groups" onchange="_updateCreateForm()">
+          <option value="1"${S(t.groupCount,1)}>1</option>
+          <option value="2"${S(t.groupCount,2)}>2</option>
+          <option value="3"${S(t.groupCount,3)}>3</option>
+          <option value="4"${S(t.groupCount,4)}>4</option>
+          <option value="5"${S(t.groupCount,5)}>5</option>
+          <option value="6"${S(t.groupCount,6)}>6</option>
+          <option value="8"${S(t.groupCount,8)}>8</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label">Round-robin format</label>
+        <select class="field-input field-select" id="cf-rounds">
+          <option value="1"${S(t.roundsPerGroup,1)}>Single (each pair plays once)</option>
+          <option value="2"${S(t.roundsPerGroup,2)}>Double (each pair plays twice)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label">Sets per match</label>
+        <select class="field-input field-select" id="cf-sets">
+          <option value="1"${S(t.setsPerMatch,1)}>1 set</option>
+          <option value="3"${S(t.setsPerMatch,3)}>Best of 3 (first to 2)</option>
+          <option value="5"${S(t.setsPerMatch,5)}>Best of 5 (first to 3)</option>
+        </select>
+      </div>
+      <div class="section-divider">Knockout</div>
+      <div class="field">
+        <label class="field-label">Teams per group → Winners bracket</label>
+        <select class="field-input field-select" id="cf-advw" onchange="_updateCreateForm()">
+          <option value="1"${S(t.advanceWinners,1)}>1</option>
+          <option value="2"${S(t.advanceWinners,2)}>2</option>
+          <option value="3"${S(t.advanceWinners,3)}>3</option>
+          <option value="4"${S(t.advanceWinners,4)}>4</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label">Teams per group → Losers bracket</label>
+        <select class="field-input field-select" id="cf-advl">
+          <option value="0"${S(t.advanceLosers,0)}>None — skip losers bracket</option>
+          <option value="1"${S(t.advanceLosers,1)}>1</option>
+          <option value="2"${S(t.advanceLosers,2)}>2</option>
+          <option value="3"${S(t.advanceLosers,3)}>3</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label">Winners bracket format</label>
+        <select class="field-input field-select" id="cf-wbf">
+          <option value="single"${S(t.winnersBracket,'single')}>Single elimination</option>
+          <option value="double"${S(t.winnersBracket,'double')}>Double elimination</option>
+        </select>
+      </div>
+      <div class="section-divider" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Teams <span id="cf-team-count" style="font-weight:400;color:var(--muted)"></span></span>
+        <button type="button" class="shuffle-btn" onclick="_randomizeGroups()">⇄ Randomize</button>
+      </div>
+      <div class="field">
+        <textarea class="field-input team-textarea" id="cf-teams-txt" rows="10"
+          placeholder="One team per line" oninput="_updateCreateForm()">${_esc(teamsText)}</textarea>
+      </div>
+      <div id="cf-group-preview"></div>
+      <p class="field-hint" id="cf-summary"></p>
+      <button type="submit" class="btn-primary" id="cf-submit">Start group stage →</button>
+    </form>`;
+
+  _updateCreateForm();
 }
 
 // ── Action: Start groups ───────────────────────────────────────────────────────
