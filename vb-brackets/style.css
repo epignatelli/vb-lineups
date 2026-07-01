@@ -222,28 +222,30 @@ body {
 }
 
 /* ── Groups phase ────────────────────────────────────────────────────────────── */
-.groups-container { display: flex; flex-direction: column; }
+.groups-container { display: flex; flex-direction: column; max-width: 540px; }
 .group-block { padding-bottom: 12px; }
 .group-block + .group-block { border-top: 1px solid var(--rule); padding-top: 8px; }
 
-.standings-table { width: 100%; border-collapse: collapse; }
+.standings-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .standings-table th {
   font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
-  color: var(--mid); text-align: left; padding: 7px 16px 6px;
+  color: var(--mid); text-align: center; padding: 7px 16px 6px;
   border-bottom: 1px solid var(--rule);
 }
-.standings-table th:first-child  { width: 32px; }
+.standings-table th:first-child  { width: 32px; text-align: left; }
+.standings-table th:nth-child(2) { text-align: left; }
 .standings-table th:nth-child(3),
-.standings-table th:nth-child(4),
-.standings-table th:nth-child(5) { width: 52px; text-align: center; }
+.standings-table th:nth-child(4) { width: 44px; }
+.standings-table th:nth-child(5) { width: 64px; }
 .standings-table td {
   padding: 9px 16px; font-size: 14px;
   border-bottom: 1px solid var(--rule);
 }
 .standings-table td:not(:first-child) { text-align: center; font-weight: 700; }
 .standings-table tr:last-child td { border-bottom: none; }
-.standings-table td:first-child { color: var(--mid); font-size: 11px; font-weight: 700; letter-spacing: .04em; width: 32px; }
-.standings-table td:nth-child(2) { font-weight: 700; letter-spacing: .03em; }
+.standings-table td:first-child { color: var(--mid); font-size: 11px; font-weight: 700; letter-spacing: .04em; }
+.standings-table td:nth-child(2) { text-align: left; font-weight: 700; letter-spacing: .03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.standings-table td:nth-child(5) { text-align: right; }
 
 .advance-w td:nth-child(2) { color: var(--y); }
 .advance-l td:nth-child(2) { color: var(--b); }
@@ -261,7 +263,7 @@ body {
 
 .mc-teams { flex: 1; display: flex; align-items: baseline; gap: 5px; min-width: 0; overflow: hidden; }
 .mc-name { font-size: 14px; font-weight: 600; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mc-sep { color: rgba(255,255,255,.2); font-size: 11px; flex-shrink: 0; }
+.mc-sep { color: rgba(255,255,255,.38); font-size: 11px; flex-shrink: 0; }
 
 /* Score column — fixed width so scores align across all rows */
 .mc-score {
@@ -270,7 +272,7 @@ body {
 }
 .mc-s { font-size: 14px; font-weight: 900; color: var(--mid); }
 .mc-s-win { color: var(--y); }
-.mc-score-sep { font-size: 11px; color: rgba(255,255,255,.2); }
+.mc-score-sep { font-size: 11px; color: rgba(255,255,255,.38); }
 .mc-score-vs { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--mid); }
 
 /* Winner: bold-white name, yellow score (distinct from standings yellow = advancement) */
