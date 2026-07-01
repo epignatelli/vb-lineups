@@ -40,6 +40,10 @@ body {
   letter-spacing: .03em;
 }
 .top-btn:active { color: var(--text); }
+.topbar-brand {
+  font-size: 13px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--y); text-decoration: none; flex-shrink: 0; padding-right: 8px;
+}
 
 /* ── Screen ──────────────────────────────────────────────────────────────────── */
 #screen { flex: 1; padding-bottom: env(safe-area-inset-bottom, 16px); }
