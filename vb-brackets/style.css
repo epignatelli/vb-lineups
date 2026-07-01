@@ -222,7 +222,7 @@ body {
 }
 
 /* ── Groups phase ────────────────────────────────────────────────────────────── */
-.groups-container { display: flex; flex-direction: column; max-width: 540px; margin: 0 auto; }
+.groups-container { display: flex; flex-direction: column; }
 .group-block { padding-bottom: 12px; }
 .group-block + .group-block { border-top: 1px solid var(--rule); padding-top: 8px; }
 
@@ -263,7 +263,7 @@ body {
 
 .mc-teams { flex: 1; display: flex; align-items: baseline; gap: 5px; min-width: 0; overflow: hidden; }
 .mc-name { font-size: 15px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mc-sep { color: rgba(255,255,255,.38); font-size: 12px; flex-shrink: 0; }
+.mc-sep { color: var(--mid); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; flex-shrink: 0; }
 
 /* Score column — fixed width so scores align across all rows */
 .mc-score {

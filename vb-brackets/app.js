@@ -439,7 +439,7 @@ function _matchCard(m, canEdit) {
       ${clickable ? `onclick="_openScore('${_esc(m.id)}')"` : ''}>
       <span class="mc-teams">
         <span class="mc-name mc-name-a">${_esc(m.nameA)}</span>
-        <span class="mc-sep">·</span>
+        <span class="mc-sep">vs</span>
         <span class="mc-name mc-name-b">${_esc(m.nameB)}</span>
       </span>
       <span class="mc-score">${scoreHtml}</span>
